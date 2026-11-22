@@ -97,7 +97,7 @@ mehet) – ez az első verzióba is kerüljön bele.
 | M7 | Körüljárás vonatelosztóból indított vonatoknál is (a Rail Operations ma csak a játékos kézzel beállított útvonalain járja körül a szerelvényt; elosztónál minden állomáshoz kézzel kell). A szerzővel egyeztetve, az ő pluginjára építve | nyitott |
 | M8 | Fordítókorong (a Rail Operationsben nincs): új épület + kód, ami rajta megfordítja a mozdonyt | nyitott |
 
-Későbbi, opcionális: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (makett: https://claude.ai/artifact/C8X1HyHhfHo2Vd3k22QrWE).
+Későbbi, opcionális: vonat-ablak címke + Auto/Mindig/Soha felülbírálás.
 
 ### Döntések (2026-11-22)
 
