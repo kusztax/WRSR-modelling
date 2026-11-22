@@ -90,6 +90,8 @@ mehet) – ez az első verzióba is kerüljön bele.
 | M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor) | 2–4 hét |
 | M3 | Prioritás egyetlen kereszteződésen, időkorláttal, ini-kapcsolóval | 1–2 hét |
 | M4 | Teszt RailPhysics-szel és Rail Operations-szel együtt, RML és TesmioLoader alatt | 1 hét |
+| M5 | Felület: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (a v1 csak automatikus szabály + Scripts-kapcsoló; makett: https://claude.ai/artifact/C8X1HyHhfHo2Vd3k22QrWE) | 2–4 hét |
+| M6 | Külön funkció: egyenletes követés útvonalanként (OpenTTD-szerű elosztás, állomási visszatartással). Csak M4 után; előtte Workshop-keresés, nincs-e már ilyen | nyitott |
 
 Minden mérföldkő végén legyen egy mondat a logban, ami igazolja. Ha valami nem
 logolható, nem tudod bizonyítani, hogy működik.
