@@ -9,9 +9,7 @@
 //    logs each train once (consist, passenger or not) and every change of the
 //    station chain it heads for. Every 60 s a histogram of chain types, every
 //    30 s per-train call counts and speed.
-// 3. Optionally (ini `signal_census = 1`) hooks the game's signal check
-//    `char maySignalPass(lead)` the same way and logs every WAIT / GO change
-//    per train, with the signal's flags and how long the train waited.
+// The signal check is hooked by signal_priority.cpp.
 //
 // Purpose: confirm on 1.1.1.13 the offsets in game_offsets.h, and watch how
 // trains wait at and pass signals - the input for the signal-priority hook.
@@ -26,7 +24,6 @@ namespace wrsr::rail_probe {
 struct Config
 {
     bool trainCensus  = false;  // log-only hook on the rail acceleration helper
-    bool signalCensus = false;  // log-only hook on the signal check (go / wait)
     int  logLimit    = 3000;   // census lines per session, then silence
 };
 

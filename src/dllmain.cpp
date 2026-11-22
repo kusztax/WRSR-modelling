@@ -22,6 +22,7 @@
 #include "hooks.h"
 #include "logger.h"
 #include "rail_probe.h"
+#include "signal_priority.h"
 
 using wrsr::Log;
 
@@ -112,14 +113,21 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
 
     ProbeRailSpeedLookup();
 
+    const int logLimit = H->configInt(kIni, kSection, "census_log_limit", 3000);
+
     wrsr::rail_probe::Config rc;
     rc.trainCensus = H->configInt(kIni, kSection, "train_census", 0) != 0;
-    rc.signalCensus = H->configInt(kIni, kSection, "signal_census", 0) != 0;
-    rc.logLimit    = H->configInt(kIni, kSection, "census_log_limit", 3000);
+    rc.logLimit    = logLimit;
     bool hooked = wrsr::rail_probe::Start(H, g_exe, rc);
 
-    Log("start done - %s", hooked ? "log-only census hook live, game behaviour unchanged"
-                                  : "no game code patched");
+    wrsr::signal_priority::Config sc;
+    sc.census     = H->configInt(kIni, kSection, "signal_census", 0) != 0;
+    sc.priority   = H->configInt(kIni, kSection, "priority", 1) != 0;
+    sc.maxHoldSec = H->configInt(kIni, kSection, "max_hold_s", 60);
+    sc.logLimit   = logLimit;
+    hooked |= wrsr::signal_priority::Start(H, g_exe, sc);
+
+    Log("start done - %s", hooked ? "hooks live (see prio / rail lines above)" : "no game code patched");
     return 0;
 }
 

@@ -86,9 +86,9 @@ mehet) – ez az első verzióba is kerüljön bele.
 | # | Kész, ha… | Becsült munka |
 |---|---|---|
 | M0 ✅ | `fake_host` PASSED CrossOverben, a játékban megjelenik a `probe ... 120.0` sor | **kész, 2026-11-22** |
-| M1 | Vonatfelmérés (census) igazolja 1.1.1.13-on: vonat `+0x3A0`, típus `+0x8600`, vonat `+0x528` – lásd `04-m1-census.md` | 1 hét |
-| M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor); kiderül, hogyan dönt a vanilla két egyenrangú kérés között | 2–4 hét |
-| M3 | v1 logika: személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; kapcsolók csak az ini-ben (semmi a mentésben) | 2–3 hét |
+| M1 ✅ | Vonatfelmérés igazolta 1.1.1.13-on a szerelvény-, típus- és sebességmezőket, a személyvonat-felismerést – lásd `04-m1-census.md` | **kész, 2026-11-22** |
+| M2 ✅ | A döntési pont a jelzőellenőrző (`+0x6AC880`, Rail Operations mintája); a vanilla nem érkezési sorrendben dönt, hanem minden várakozónak GO-t ad és versenyeznek | **kész, 2026-11-22** |
+| M3 🔄 | v1 logika (kód kész, játékteszt hátra): személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; kapcsolók csak az ini-ben (semmi a mentésben) | 2–3 hét |
 | M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; **régi mentés betölthető a moddal, és a moddal készült mentés betölthető nélküle**; **natív Windows-on is** | 1–2 hét |
 | M5 | **Workshop-kiadás (v1)** – forrás nyilvánosan (GPL-3.0), leírásban a tesztelt loaderek és játékverzió | 1 hét |
 | M6 | Egyenletes követés **minden játékos által beállított útvonalra** (vonat, busz, villamos, teherautó, …); elosztó és műszaki iroda járművei kivéve | nyitott, több hónap |

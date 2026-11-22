@@ -20,6 +20,9 @@ if(NOT WIN32)
     add_executable(aob_tests tests/aob_tests.cpp src/aob_pattern.cpp)
     target_include_directories(aob_tests PRIVATE src)
     add_test(NAME aob_tests COMMAND aob_tests)
+    add_executable(priority_tests tests/priority_tests.cpp src/priority_policy.cpp)
+    target_include_directories(priority_tests PRIVATE src)
+    add_test(NAME priority_tests COMMAND priority_tests)
     return()
 endif()
 
@@ -59,7 +62,9 @@ add_library(wrsr_rail_mod SHARED
     src/aob_pattern.cpp
     src/aob_scan.cpp
     src/env_info.cpp
-    src/rail_probe.cpp)
+    src/rail_probe.cpp
+    src/signal_priority.cpp
+    src/priority_policy.cpp)
 
 target_include_directories(wrsr_rail_mod PRIVATE src third_party/tesmio)
 target_compile_definitions(wrsr_rail_mod PRIVATE

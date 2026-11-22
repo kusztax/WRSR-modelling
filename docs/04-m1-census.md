@@ -74,3 +74,29 @@ Nyitott:
 `signal_census = 1`: log-only hook a jelzőellenőrzőn (`rail  sig` sorok:
 WAIT/GO váltások vonatonként, várakozási idővel) és `rail  stat` sorok 30
 másodpercenként (hívásszám, sebesség).
+
+## Eredmény – 2. futás (jelzőfelmérés, kétkörös tesztpálya)
+
+Igazolva 1.1.1.13-on:
+- A jelzőellenőrző hook él: `+0x6AC880` (Rail Operations mintája).
+- `V_SPEED +0xD24` jó: 115 km/h-s utazósebesség, fékezés, 0 állva.
+  Az 1. futás 0.0-s értékei azért voltak, mert ott csak állomáson álló
+  vonatot mintáztunk.
+- A `divisor` képkockánként hívódik (≈ 60/s vonatonként), a jelzőellenőrző
+  60–120/s vonatonként.
+
+**A vanilla döntés** (6 ismétlés, mind ugyanaz):
+- Amikor a közös blokk felszabadul, a játék **ugyanabban a képkockában
+  mindkét várakozó vonatnak GO-t mond** (pl. 21:46:35.940 FRT GO és
+  21:46:35.956 PAX GO).
+- Mindkettő elindul, a személyvonat ~0,7 s múlva **újra WAIT-et kap**
+  (v ≈ 9 km/h): a blokkot a tehervonat foglalta le.
+- Ez **nem érkezési sorrend**: a személyvonat 26–28 s-ot várt, a tehervonat
+  csak 11–13 s-ot, mégis a tehervonat nyert.
+- Valószínűleg a feldolgozási sorrend dönt (a vonatlista sorrendje). Ezt
+  nem kell tovább kutatni: a mod a WAIT→GO átmenetnél avatkozik be.
+
+Következmény a tervezéshez: a beavatkozási pont a **várakozó** tehervonat
+GO-ja. Ha ilyenkor egy másik jelzőnél személyvonat vár ugyanarra a blokkra,
+a tehervonat WAIT-et kap. Mozgó vonatot a mod soha nem állít meg.
+Részletek: `src/priority_policy.h`, `src/signal_priority.cpp`.
