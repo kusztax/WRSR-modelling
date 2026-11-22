@@ -332,6 +332,9 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
 void Observe(BYTE* lead, char& answer)
 {
     AcquireSRWLockExclusive(&g_lock);
+    // Keep the Scripts menu state (and its log line) current even when no
+    // freight train is about to be held. Throttled inside to every 500 ms.
+    if (g_cfg.priority) script_switch::PriorityOffByScript();
     Train* t = Find(lead);
     if (t)
     {

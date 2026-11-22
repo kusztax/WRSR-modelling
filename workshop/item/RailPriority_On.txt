@@ -11,6 +11,6 @@ defineFunction(main, void)
 {
 	Script_Exists("RailPriority_OffFlag.txt", bOff);
 	if (bOff) { Script_DestroyByName("RailPriority_OffFlag.txt"); }
-	Notification_CreateNewLangIDPic(1957001, 1957002, "", vWhere);
+	Notification_CreateNewLangIDPic(1957001, 1957002, "RailPriority_On.png", vWhere);
 	end();
 }
