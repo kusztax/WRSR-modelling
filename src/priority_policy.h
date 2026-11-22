@@ -17,7 +17,7 @@ namespace wrsr::priority {
 
 struct Config
 {
-    uint32_t maxHoldMs = 60000;  // a freight is never held longer: the deadlock guard
+    uint32_t maxHoldMs = 60000;  // deadlock guard: held this long for ONE passenger train
     uint32_t staleMs   = 1500;   // a passenger train not seen for this long does not count
     uint32_t graceMs   = 1500;   // after a passenger train was given GO, still protect its block
 };

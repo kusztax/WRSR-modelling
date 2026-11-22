@@ -282,7 +282,11 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
     switch (v)
     {
     case priority::Verdict::Hold:
-        if (!t.holdStart)
+        // The timeout guards against a deadlock, not against starvation: it
+        // runs per passenger train. A new passenger train going first means
+        // traffic is flowing, so the clock starts again - a freight train on
+        // a busy passenger line can wait indefinitely, by design.
+        if (!t.holdStart || who != t.holdFor)
         {
             t.holdStart = now;
             t.holdFor   = who;
@@ -294,8 +298,8 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
 
     case priority::Verdict::Timeout:
         if (TakeLine())
-            Log("prio  TIMEOUT train #%d FRT released after %.0f s (passenger train #%d still waiting)",
-                t.id, (double)(now - t.holdStart) / 1000.0, who);
+            Log("prio  TIMEOUT train #%d FRT released: passenger train #%d made no progress for %.0f s",
+                t.id, who, (double)(now - t.holdStart) / 1000.0);
         t.holdStart = 0;
         return gameAnswer;
 
