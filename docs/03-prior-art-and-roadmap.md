@@ -88,8 +88,8 @@ mehet) – ez az első verzióba is kerüljön bele.
 | M0 ✅ | `fake_host` PASSED CrossOverben, a játékban megjelenik a `probe ... 120.0` sor | **kész, 2026-11-22** |
 | M1 | Vonatfelmérés (census) igazolja 1.1.1.13-on: vonat `+0x3A0`, típus `+0x8600`, vonat `+0x528` – lásd `04-m1-census.md` | 1 hét |
 | M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor); kiderül, hogyan dönt a vanilla két egyenrangú kérés között | 2–4 hét |
-| M3 | v1 logika: személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; Scripts-kapcsoló + ini | 2–3 hét |
-| M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; mentés betölthető a mod nélkül; **natív Windows-on is** | 1–2 hét |
+| M3 | v1 logika: személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; kapcsolók csak az ini-ben (semmi a mentésben) | 2–3 hét |
+| M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; **régi mentés betölthető a moddal, és a moddal készült mentés betölthető nélküle**; **natív Windows-on is** | 1–2 hét |
 | M5 | **Workshop-kiadás (v1)** – forrás nyilvánosan (GPL-3.0), leírásban a tesztelt loaderek és játékverzió | 1 hét |
 | M6 | Egyenletes követés **minden játékos által beállított útvonalra** (vonat, busz, villamos, teherautó, …); elosztó és műszaki iroda járművei kivéve | nyitott, több hónap |
 | M7 | Körüljárás automatizálása (a Rail Operations kézi megoldására építve vagy vele egyeztetve) | nyitott |
@@ -102,6 +102,9 @@ Későbbi, opcionális: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (
 - **Felület v1-ben:** nincs új gomb. Automatikus szabály (személykocsi a szerelvényben → elsőbbség) + Scripts menü kapcsoló + ini.
 - **Egyenrangú vonatok** (két személyvonat, vagy két tehervonat, akár szemből egymás felé): a mod **nem avatkozik be**, a játék saját döntése marad. Hogy az mi (érkezési sorrend vagy más), azt az M2 logjából derítjük ki; a v1 nem tesz rá semmit.
 - **Sorrend:** jelzőelsőbbség → Workshop → egyenletes követés → körüljárás → fordítókorong.
+- **Mentések:** a mod működjön meglévő mentésekkel, és egy vele készült mentés töltődjön be nélküle is. Ezért a v1 **semmit nem ír a mentésbe és mellé sem**: minden beállítás az `wrsr_rail_mod.ini`-ben van. A Scripts menüs, mentésenként tárolt kapcsoló a v1-ből kimarad; ha később kell, a mentés melletti külön fájlban tároljuk (a Rail Operations mintájára), és hiánya esetén az alapértékkel indulunk.
+- **Windows-teszt:** a felhasználónak van Windowsos gépe; az M4 natív Windows-futtatást is tartalmaz.
+- **Forrás:** a repó a Workshop-kiadás előtt publikus lesz (GPL-3.0).
 
 Minden mérföldkő végén legyen egy mondat a logban, ami igazolja. Ha valami nem
 logolható, nem tudod bizonyítani, hogy működik.
