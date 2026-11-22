@@ -36,13 +36,13 @@ Mac/CrossOver, `tools/deploy-mac.sh` után:
 8. [x] A moddal készült mentés betölt a mod nélkül (plugin és szkriptek
        eltávolítva) – különösen KI állapotban mentve (fut a flag-szkript).
 9. [x] Windows natívan (2026-11-22).
-10. [ ] RML alatt: 1–4; Rail Operations-szel és RailPhysics-szel együtt.
+10. [x] RML 1.0.1 alatt (2026-11-22): 1–4 egyedül, és Rail Operations-szel együtt (RML a hookot elé láncolja, nincs DEGRADED). RailPhysics-szel nem tesztelt.
 11. [x] TesmioLoader + Rail Operations (hook elé fűzve, 2026-11-22): log `prio  live (chained in front of another plugin)`,
         és a Rail Operations `signal check hooked` sora is megvan; mindkettő működik.
 
 ## Kiadás
 
-1. RML-teszt (10. pont) – a leírás RML-támogatást ígér, enélkül nem mehet ki.
+1. ~~RML-teszt~~ kész.
 2. A repó publikus (GPL-3.0: a forrásnak elérhetőnek kell lennie).
 3. `tools/package-release.sh` → `dist/RailPriority/`, és ha `GAME` be van
    állítva, `media_soviet/workshop_wip/RailPriority/`.
