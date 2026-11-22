@@ -12,7 +12,7 @@ With Rail Priority the passenger train always goes first:
 [*] a moving train is never stopped: only a train already waiting at a signal is kept waiting.
 [/list]
 
-[b]Freight trains can wait for a long time.[/b] On a line where passenger trains keep coming, a freight train waits until there is a gap. This is on purpose. If the same passenger train does not move for 60 seconds (a jam), the freight train goes anyway. The time can be 30, 60, 90, 120 or 180 seconds: max_hold_s in plugins/wrsr_rail_mod.ini.
+[b]Freight trains can wait for a long time.[/b] On a line where passenger trains keep coming, a freight train waits until there is a gap. This is on purpose. If the same passenger train does not move for 60 seconds (a jam), the freight train goes anyway. The time can be 30, 60, 90, 120 or 180 seconds: max_hold_s in plugins/wrsr_rail_mod.ini (a Steam update of the mod resets this file).
 
 [h3]Switching it on and off[/h3]
 Options → Scripts has two buttons: ON and OFF. The choice is kept in each save. A save that never pressed OFF has the priority ON.
@@ -23,7 +23,7 @@ Options → Scripts has two buttons: ON and OFF. The choice is kept in each save
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader or Republic Mod Loader
 [/list]
-Works together with Rail Operations (tested). Nothing is written into your save except the running OFF script, and saves load without the mod.
+Works together with Rail Operations (tested). Nothing is written into your save except the running OFF script, and saves load without the mod. If a save was made with the priority OFF and the mod is no longer subscribed, the game asks about a missing Workshop item when loading it: choose the red X (do not subscribe) and the save loads normally.
 
 [h3]Install[/h3]
 [b]TesmioLoader:[/b] subscribe; the loader finds the plugin in the Workshop folder. Start the game with tesmiolauncher.exe.
@@ -44,7 +44,7 @@ A Rail Priority mellett mindig a személyvonat megy elsőként:
 [*] mozgó vonatot a mod soha nem állít meg, csak a jelzőnél már várakozót tartja várakozásban.
 [/list]
 
-[b]A tehervonat sokáig várhat.[/b] Ha a vonalon folyamatosan jönnek a személyvonatok, a tehervonat addig vár, amíg rés nem nyílik. Ez szándékos. Ha ugyanaz a személyvonat 60 másodpercig nem mozdul (dugó), a tehervonat mégis elindul. Az idő 30, 60, 90, 120 vagy 180 másodperc lehet: max_hold_s a plugins/wrsr_rail_mod.ini fájlban.
+[b]A tehervonat sokáig várhat.[/b] Ha a vonalon folyamatosan jönnek a személyvonatok, a tehervonat addig vár, amíg rés nem nyílik. Ez szándékos. Ha ugyanaz a személyvonat 60 másodpercig nem mozdul (dugó), a tehervonat mégis elindul. Az idő 30, 60, 90, 120 vagy 180 másodperc lehet: max_hold_s a plugins/wrsr_rail_mod.ini fájlban (a mod Steam-frissítése visszaállítja ezt a fájlt).
 
 [h3]Be- és kikapcsolás[/h3]
 A Beállítások → Szkriptek menüben két gomb van: BE és KI. A beállítás mentésenként megmarad. Ha egy mentésben senki nem nyomta meg a KI gombot, az elsőbbség BE van kapcsolva.
@@ -55,7 +55,7 @@ A Beállítások → Szkriptek menüben két gomb van: BE és KI. A beállítás
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader vagy Republic Mod Loader
 [/list]
-Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó KI-szkripten kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek.
+Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó KI-szkripten kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek. Ha egy mentés KI állapotban készült, és a modra már nem vagy feliratkozva, betöltéskor a játék hiányzó Workshop-elemre figyelmeztet: válaszd a piros X-et (nem iratkozol fel), és a mentés rendben betöltődik.
 
 [h3]Telepítés[/h3]
 [b]TesmioLoader:[/b] iratkozz fel; a loader a Workshop-mappában megtalálja a plugint. A játékot a tesmiolauncher.exe indítsa.

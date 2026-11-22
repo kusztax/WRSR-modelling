@@ -3,12 +3,21 @@
 # into the game's project folder for the Workshop item, from which the game's
 # Workshop screen uploads it.
 #
-#   tools/package-release.sh
+#   tools/package-release.sh          build, assemble, fill the game's project folder
+#   tools/package-release.sh clean    remove the project folder after an upload
+#                                     (else the author sees every button twice:
+#                                     once from it, once from the subscription)
 #
 # The project was created in the game (Workshop -> +), which gave it its
 # Workshop id and wrote $ITEM_ID, $OWNER_ID and $VISIBILITY into its
 # workshopconfig.ini. Those lines are kept; everything else is ours.
 ITEM=3844461371
+
+if [ "$1" = "clean" ]; then
+    rm -rf "$GAME/media_soviet/workshop_wip/$ITEM"
+    echo "[package] removed media_soviet/workshop_wip/$ITEM"
+    exit 0
+fi
 set -e
 cd "$(dirname "$0")/.."
 if [ -f "$HOME/wrsr-env.sh" ]; then . "$HOME/wrsr-env.sh"; fi
@@ -43,8 +52,17 @@ ls -R "$OUT"
 
 if [ -n "$GAME" ] && [ -d "$GAME/media_soviet" ]; then
     DEST="$GAME/media_soviet/workshop_wip/$ITEM"
-    if [ ! -f "$DEST/workshopconfig.ini" ] || ! grep -q "^\$ITEM_ID $ITEM" "$DEST/workshopconfig.ini"; then
-        echo "[package] $DEST has no workshopconfig.ini for item $ITEM - create the item in the game first" >&2
+    if [ ! -f "$DEST/workshopconfig.ini" ]; then
+        # Removed after the last upload ('clean'): recreate it with the ids
+        # the game gave the item. 0 = not published, 2 = public.
+        OWNER=$(grep -hoE '"7656119[0-9]{10}"' "$STEAM/config/loginusers.vdf" 2>/dev/null | head -n 1 | tr -d '"')
+        [ -n "$OWNER" ] || { echo "[package] cannot read your Steam ID" >&2; exit 1; }
+        mkdir -p "$DEST"
+        printf '%s\n\n' '$ITEM_ID '"$ITEM" '$OWNER_ID '"$OWNER" '$VISIBILITY '"${VISIBILITY:-2}" > "$DEST/workshopconfig.ini"
+        echo "[package] recreated the project folder (visibility ${VISIBILITY:-2}; set VISIBILITY=0 for hidden)"
+    fi
+    if ! grep -q "^\$ITEM_ID $ITEM" "$DEST/workshopconfig.ini"; then
+        echo "[package] $DEST/workshopconfig.ini is not for item $ITEM" >&2
         exit 1
     fi
     ids=$(grep -E '^\$(ITEM_ID|OWNER_ID|VISIBILITY)' "$DEST/workshopconfig.ini")
@@ -53,4 +71,6 @@ if [ -n "$GAME" ] && [ -d "$GAME/media_soviet" ]; then
     cp -R "$OUT/." "$DEST/"
     echo "[package] copied to media_soviet/workshop_wip/$ITEM (ids and visibility kept):"
     grep -E '^\$(ITEM_ID|OWNER_ID|VISIBILITY|ITEM_NAME)' "$DEST/workshopconfig.ini"
+    echo "[package] upload it in the game (Workshop -> your items -> the card -> green tick),"
+    echo "[package] then run: tools/package-release.sh clean"
 fi

@@ -51,3 +51,15 @@ Mac/CrossOver, `tools/deploy-mac.sh` után:
    fájlt meg kell tartani (a script a következő csomagoláskor átveszi).
 5. Utána a helyi tesztmappa (`workshop_wip/9957001`) törlése, különben a
    gombok kétszer látszanak.
+
+### Workshop-próba (2026-11-22)
+
+- Elem: 3844461371 (feltöltve rejtve). Feliratkozás után a TesmioLoader a
+  Workshop-mappából tölti be (`plugin wrsr_rail_mod 1.0.0 from ...\3844461371\plugins`).
+- Gombok, KI/BE, elsőbbség: működik a Workshop-példányból.
+- Mentés KI állapotban, majd a jelző-szkriptet adó elem hiányzik: a játék
+  „Hiányzó műhelyi elem(ek)” kérdést tesz fel. **Piros X** = betöltés
+  feliratkozás nélkül: rendben betölt (a futó szkriptet a mentésből veszi).
+  `>>` = a feliratkozások listája. A leírás ezt elmondja.
+- A szerzőnél a gombok kétszer látszanak (projektmappa + feliratkozás):
+  feltöltés után `tools/package-release.sh clean`.
