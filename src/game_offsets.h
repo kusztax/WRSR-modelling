@@ -14,6 +14,9 @@ namespace wrsr::off {
 constexpr uintptr_t V_LEADER     = 0x398;   // wagon: the vehicle pulling it; 0 on the lead
 constexpr uintptr_t V_WAGON_VEC  = 0x3A0;   // {begin,end} of vehicle* - the consist
 constexpr uintptr_t V_REVERSED   = 0x4C4;   // u8: car coupled back to front
+constexpr uintptr_t V_PASS_ALL   = 0x5E0;   // u8: non-zero -> the signal check always says go (meaning unknown)
+constexpr uintptr_t V_ROUTE_NODES = 0x6A0;  // {begin,end} of node* along the planned way
+constexpr uintptr_t V_ROUTE_INDEX = 0x700;  // int: index of the node the train heads for
 constexpr uintptr_t V_CHAIN_AT   = 0x4F0;   // chain the train has ARRIVED at
 constexpr uintptr_t V_CHAIN_NEXT = 0x528;   // chain the train is engaged with / approaching
 constexpr uintptr_t V_DIR        = 0x7A0;   // u8: direction on the current segment
@@ -37,5 +40,14 @@ constexpr uintptr_t C_ENGAGED_AT = 0x604;   // float: distance of the train enga
 constexpr uintptr_t C_VEHICLES   = 0xC70;   // {begin,end} vehicles present
 
 constexpr int CHAIN_TYPE_PLAIN_BLOCK = 300; // inferred by RailPhysics: track-only section
+
+// ---- track node / signal (source: Rail Operations by pautov-ya, GPL-3.0,
+//      railreverse.cpp; their signatures are tested on 1.1.1.9 and 1.1.1.13) ----
+constexpr uintptr_t N_SIGNAL     = 0xB8;    // node -> signal object, or null
+constexpr uintptr_t S_KIND       = 0x14;    // int: 10 = no signal
+constexpr uintptr_t S_FREE_A     = 0x1A8;   // u8: block flag, 1 = free
+constexpr uintptr_t S_FREE_B     = 0x1A9;   // u8: block flag, 1 = free
+constexpr uintptr_t S_CHAIN      = 0x1AA;   // u8: 1..3 = chain signal
+constexpr int SIGNAL_KIND_NONE = 10;
 
 }  // namespace wrsr::off

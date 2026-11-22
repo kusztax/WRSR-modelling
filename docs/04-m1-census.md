@@ -39,3 +39,38 @@ különben nincs hook. A loader az első 14 bájtot is összeveti a várt
 Korlát: a `divisor` csak a rail update egy ágából hívódik – egy álló
 (jelzőnél váró) vonatot lehet, hogy addig nem lát, amíg el nem indul. Ez a
 következő lépés kérdése: melyik függvény dönt a várakozásról.
+
+## Eredmény – 1. futás (2026-11-22, 1.1.1.13, CrossOver, Test map, 3 vonat)
+
+Igazolva:
+- A hook él: `divisor` a `+0x698DF0` címen (1.1.1.9-ben `+0x698C50` volt), a
+  lánc-vektor a `+0x9E6A18` címen. Mindkettő mintával lett megtalálva.
+- `V_TYPE +0x1708`, `T_CATEGORY +0x294` (mozdony = 4), `T_TOPSPEED +0x8624`
+  (115 km/h, hihető), `V_WAGON_VEC +0x3A0`, `V_LEADER +0x398` (0 a vezető egységen).
+- **Személyvonat-felismerés működik:** `T_TRANSPORT +0x8600 == 7` a
+  személykocsin; 2 vonat PASSENGER, 1 freight – egyezik a valósággal.
+  A mozdony saját osztálya 18.
+
+Új tudás, ami **módosítja a tervet**:
+- `+0x528` nem blokkfoglalás: az épp megközelített **állomás**-láncot mutatja
+  (0 és 1 típus), kb. 0,4–2 s-ig, utána nullázódik.
+- Jelzők mellett sincs 300-as típusú lánc a vektorban: a **jelzők nem
+  láncok**, hanem a pálya csomópontjain ülnek (Rail Operations RE:
+  `node+0xB8` → jelző, `+0x14` fajta, `+0x1A8/+0x1A9` „blokk szabad” jelzők,
+  `+0x1AA` láncjelző).
+- A döntés helye a játék jelzőellenőrző függvénye: `char maySignalPass(lead)`
+  (Rail Operations: `FUN_1406ac6e0` 1.1.1.9-en) – ennek kell a hook.
+- A vasúti update **legalább két szálon** fut (a logban két szálazonosító
+  váltakozik). Az elsőbbség logikájának szálbiztosnak kell lennie.
+
+Nyitott:
+- A sebesség (`+0xD24`) minden mintavételnél 0.0 volt. Vagy a `divisor` csak
+  induláskor hívódik, vagy az offszet elcsúszott. A 2. futás 30 mp-es
+  `stat` sorai ezt eldöntik.
+- `+0x4F0` mindig null volt a mintavételkor.
+
+## 2. futás – jelzőfelmérés
+
+`signal_census = 1`: log-only hook a jelzőellenőrzőn (`rail  sig` sorok:
+WAIT/GO váltások vonatonként, várakozási idővel) és `rail  stat` sorok 30
+másodpercenként (hívásszám, sebesség).

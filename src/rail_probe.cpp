@@ -17,32 +17,37 @@ using namespace wrsr::off;
 const TsmHost* g_host = nullptr;
 
 // ---------------------------------------------------------------- patterns
-// From RailPhysics (GPL-3.0), verified there on 1.1.1.9; re-verified here at
-// runtime: unique match, and the two independent ways to the divisor
-// function must agree.
+// Re-verified at runtime: unique match, expected bytes checked by the loader.
 
-// divisor fn prologue + body: push rbx; sub rsp,30h; movaps [rsp+20h],xmm6;
-// mov rbx,rcx; call power; mov dl,1; mov rcx,rbx; movaps xmm6,xmm0; call mass;
-// mov rax,[rbx+1708h]
+// The rail acceleration helper `float divisor(vehicle*)` (RailPhysics,
+// GPL-3.0): push rbx; sub rsp,30h; movaps [rsp+20h],xmm6; mov rbx,rcx; call
+// power; mov dl,1; mov rcx,rbx; movaps xmm6,xmm0; call mass; mov rax,[rbx+1708h]
 const char kSigDivisorFn[] =
     "40 53 48 83 EC 30 0F 29 74 24 20 48 8B D9 E8 ?? ?? ?? ?? B2 01 48 8B CB "
     "0F 28 F0 E8 ?? ?? ?? ?? 48 8B 83 08 17 00 00";
-
 // in the rail update: mov rcx,rsi; call divisor; movaps xmm15,xmm0; ...
 const char kSigCallDivisor[] =
     "48 8B CE E8 ?? ?? ?? ?? 44 0F 28 F8 45 0F 28 CE 45 0F 28 EC";
-
-// mov rax,[rip+&chainVec]; mov rcx,[rax+rcx*8]; add rcx,320h - several sites,
-// all of which must resolve to the same global.
-const char kSigChainVec[] = "48 8B 05 ?? ?? ?? ?? 48 8B 0C C8 48 81 C1 20 03 00 00";
-
-// What installInlineHook must find at the divisor entry: the first 14 bytes,
-// ending on an instruction boundary, nothing rip-relative.
 const unsigned char kDivisorExpect[14] = {
-    0x40, 0x53,                         // push rbx
-    0x48, 0x83, 0xEC, 0x30,             // sub  rsp,30h
-    0x0F, 0x29, 0x74, 0x24, 0x20,       // movaps [rsp+20h],xmm6
-    0x48, 0x8B, 0xD9};                  // mov  rbx,rcx
+    0x40, 0x53,                    // push rbx
+    0x48, 0x83, 0xEC, 0x30,        // sub  rsp,30h
+    0x0F, 0x29, 0x74, 0x24, 0x20,  // movaps [rsp+20h],xmm6
+    0x48, 0x8B, 0xD9};             // mov  rbx,rcx
+
+// The signal check `char maySignalPass(lead)` - "may this train go past the
+// signal at the node it heads for" (Rail Operations, GPL-3.0, FUN_1406ac6e0
+// on 1.1.1.9): push rbx; sub rsp,70h; cmp byte [rcx+5E0h],0; mov rbx,rcx;
+// je +8; mov al,1; add rsp,70h; pop rbx; ret; mov rax,[rcx+6A8h]
+const char kSigSignalFn[] =
+    "40 53 48 83 EC 70 80 B9 E0 05 00 00 00 48 8B D9 74 08 B0 01 48 83 C4 70 5B C3 48 8B 81 A8 06 00";
+const unsigned char kSignalExpect[16] = {
+    0x40, 0x53,                                // push rbx
+    0x48, 0x83, 0xEC, 0x70,                    // sub  rsp,70h
+    0x80, 0xB9, 0xE0, 0x05, 0x00, 0x00, 0x00,  // cmp  byte [rcx+5E0h],0
+    0x48, 0x8B, 0xD9};                         // mov  rbx,rcx
+
+// mov rax,[rip+&chainVec]; mov rcx,[rax+rcx*8]; add rcx,320h
+const char kSigChainVec[] = "48 8B 05 ?? ?? ?? ?? 48 8B 0C C8 48 81 C1 20 03 00 00";
 
 // ---------------------------------------------------------------- memory
 
@@ -59,7 +64,7 @@ bool Readable(const void* p, size_t n)
 template <class T>
 bool Read(const BYTE* base, uintptr_t off, T& out)
 {
-    if (!Readable(base + off, sizeof(T))) return false;
+    if (!base || !Readable(base + off, sizeof(T))) return false;
     memcpy(&out, base + off, sizeof(T));
     return true;
 }
@@ -77,24 +82,32 @@ int ChainType(BYTE* chain)
 BYTE*** g_chainVec = nullptr;   // &{begin,end} of chain*
 
 using DivisorFn = float (*)(void*);
+using SignalFn  = char (*)(void*);
 DivisorFn g_origDivisor = nullptr;
+SignalFn  g_origSignal  = nullptr;
 
 SRWLOCK   g_lock       = SRWLOCK_INIT;
 int       g_linesLeft  = 0;
 bool      g_capLogged  = false;
 ULONGLONG g_lastChains = 0;
+ULONGLONG g_lastStats  = 0;
 
 struct Seen
 {
-    BYTE* veh;
-    BYTE* type;
-    BYTE* chainNext;
-    BYTE* chainAt;
-    int   id;
+    BYTE*     veh;
+    BYTE*     type;
+    BYTE*     chainNext;
+    BYTE*     chainAt;
+    int       id;
+    bool      pax;
+    int       lastGo;      // -1 unknown, 0 wait, 1 go
+    BYTE*     waitNode;
+    ULONGLONG waitSince;
+    unsigned  divCalls, sigCalls;
 };
 constexpr int kMaxSeen = 1024;
 Seen g_seen[kMaxSeen];
-int  g_seenCount = 0;
+int  g_seenCount  = 0;
 bool g_fullLogged = false;
 
 bool TakeLine()
@@ -108,7 +121,9 @@ bool TakeLine()
     return false;
 }
 
-// ---------------------------------------------------------------- census
+const char* Kind(const Seen& s) { return s.pax ? "PAX" : "FRT"; }
+
+// ---------------------------------------------------------------- consist
 
 struct Consist
 {
@@ -151,30 +166,36 @@ Consist ReadConsist(BYTE* lead)
     return c;
 }
 
-void LogNewTrain(const Seen& s)
+// ---------------------------------------------------------------- signals
+
+struct SignalInfo
 {
-    BYTE* v = s.veh;
-    int   cat = -1, cls = -1;
-    float top = -1, speed = -1, target = -1;
-    BYTE* leader = nullptr;
-    Read(s.type, T_CATEGORY, cat);
-    Read(s.type, T_TRANSPORT, cls);
-    Read(s.type, T_TOPSPEED, top);
-    Read(v, V_SPEED, speed);
-    Read(v, V_TARGET, target);
-    Read(v, V_LEADER, leader);
+    BYTE* node = nullptr;
+    BYTE* sig  = nullptr;
+    int   kind = -1;
+    unsigned char freeA = 0, freeB = 0, chain = 0;
+};
 
-    Consist c = ReadConsist(v);
-
-    Log("rail  train #%d %p NEW  lead: cat %d cls %d top %.0f, leader %p | v %.1f -> %.1f km/h",
-        s.id, (void*)v, cat, cls, top, (void*)leader, speed, target);
-    Log("rail  train #%d consist%s: %d units = %d loco + %d wagon + %d service; "
-        "pax-units %d, reversed %d, inactive %d => %s",
-        s.id, c.ok ? "" : " (PARTIAL)", c.units, c.locos, c.wagons, c.service,
-        c.paxUnits, c.reversed, c.inactive, c.paxUnits > 0 ? "PASSENGER" : "freight/other");
-    Log("rail  train #%d chains: next %p (type %d), at %p (type %d)", s.id,
-        (void*)s.chainNext, ChainType(s.chainNext), (void*)s.chainAt, ChainType(s.chainAt));
+// The signal at the node the train heads for: route nodes +0x6A0[+0x700].
+SignalInfo NextSignal(BYTE* lead)
+{
+    SignalInfo si;
+    BYTE** b = nullptr;
+    BYTE** e = nullptr;
+    int    idx = -1;
+    if (!Read(lead, V_ROUTE_NODES, b) || !Read(lead, V_ROUTE_NODES + 8, e) || !Read(lead, V_ROUTE_INDEX, idx))
+        return si;
+    if (!b || e <= b || e - b > 100000 || idx < 0 || idx >= e - b) return si;
+    if (!Read((BYTE*)(b + idx), 0, si.node)) return si;
+    if (!Read(si.node, N_SIGNAL, si.sig) || !si.sig) return si;
+    Read(si.sig, S_KIND, si.kind);
+    Read(si.sig, S_FREE_A, si.freeA);
+    Read(si.sig, S_FREE_B, si.freeB);
+    Read(si.sig, S_CHAIN, si.chain);
+    return si;
 }
+
+// ---------------------------------------------------------------- census
 
 void ChainCensus()
 {
@@ -219,68 +240,158 @@ void ChainCensus()
     if (TakeLine()) Log("%s", line);
 }
 
-void Observe(BYTE* v)
+// Every 30 s, one line per train: call rates and speed. The speed is how the
+// V_SPEED / V_TARGET offsets get checked against what the game shows.
+void Stats()
 {
-    BYTE* type = nullptr;
-    BYTE* next = nullptr;
-    BYTE* at   = nullptr;
-    // `v` comes straight from the game, so its own fields are readable; the
-    // checks are for a game update that moved them.
-    if (!Read(v, V_TYPE, type) || !Read(v, V_CHAIN_NEXT, next) || !Read(v, V_CHAIN_AT, at)) return;
-
-    AcquireSRWLockExclusive(&g_lock);
-
-    ULONGLONG now = GetTickCount64();
-    if (now - g_lastChains >= 60000)
-    {
-        g_lastChains = now;
-        ChainCensus();
-    }
-
-    int i = 0;
-    while (i < g_seenCount && !(g_seen[i].veh == v && g_seen[i].type == type)) ++i;
-
-    if (i == g_seenCount)
-    {
-        if (g_seenCount == kMaxSeen)
-        {
-            if (!g_fullLogged && TakeLine()) Log("rail  census table full (%d trains)", kMaxSeen);
-            g_fullLogged = true;
-        }
-        else
-        {
-            Seen& s = g_seen[g_seenCount];
-            s = Seen{v, type, next, at, g_seenCount + 1};
-            ++g_seenCount;
-            if (g_linesLeft >= 3) { g_linesLeft -= 3; LogNewTrain(s); }
-            else TakeLine();
-        }
-    }
-    else
+    int shown = 0;
+    for (int i = 0; i < g_seenCount && shown < 16; ++i)
     {
         Seen& s = g_seen[i];
-        if (s.chainNext != next || s.chainAt != at)
-        {
-            if (TakeLine())
-            {
-                float speed = -1;
-                Read(v, V_SPEED, speed);
-                Log("rail  train #%d next %p(t%d) -> %p(t%d), at %p(t%d) -> %p(t%d), v %.1f", s.id,
-                    (void*)s.chainNext, ChainType(s.chainNext), (void*)next, ChainType(next),
-                    (void*)s.chainAt, ChainType(s.chainAt), (void*)at, ChainType(at), speed);
-            }
-            s.chainNext = next;
-            s.chainAt   = at;
-        }
+        if (!s.divCalls && !s.sigCalls) continue;
+        float v = -1, t = -1;
+        Read(s.veh, V_SPEED, v);
+        Read(s.veh, V_TARGET, t);
+        if (TakeLine())
+            Log("rail  stat  train #%d %s  v %.1f -> %.1f km/h, last 30 s: divisor %u calls, signal %u calls",
+                s.id, Kind(s), v, t, s.divCalls, s.sigCalls);
+        s.divCalls = s.sigCalls = 0;
+        ++shown;
+    }
+}
+
+void LogNewTrain(const Seen& s)
+{
+    BYTE* v = s.veh;
+    int   cat = -1, cls = -1;
+    float top = -1, speed = -1, target = -1;
+    BYTE* leader = nullptr;
+    Read(s.type, T_CATEGORY, cat);
+    Read(s.type, T_TRANSPORT, cls);
+    Read(s.type, T_TOPSPEED, top);
+    Read(v, V_SPEED, speed);
+    Read(v, V_TARGET, target);
+    Read(v, V_LEADER, leader);
+
+    Consist c = ReadConsist(v);
+
+    Log("rail  train #%d %p NEW  lead: cat %d cls %d top %.0f, leader %p | v %.1f -> %.1f km/h",
+        s.id, (void*)v, cat, cls, top, (void*)leader, speed, target);
+    Log("rail  train #%d consist%s: %d units = %d loco + %d wagon + %d service; "
+        "pax-units %d, reversed %d, inactive %d => %s",
+        s.id, c.ok ? "" : " (PARTIAL)", c.units, c.locos, c.wagons, c.service,
+        c.paxUnits, c.reversed, c.inactive, c.paxUnits > 0 ? "PASSENGER" : "freight/other");
+}
+
+// Find or register a train. Lock held. Null when the table is full or the
+// vehicle is unreadable.
+Seen* Track(BYTE* v)
+{
+    BYTE* type = nullptr;
+    if (!Read(v, V_TYPE, type)) return nullptr;
+
+    for (int i = 0; i < g_seenCount; ++i)
+        if (g_seen[i].veh == v && g_seen[i].type == type) return &g_seen[i];
+
+    if (g_seenCount == kMaxSeen)
+    {
+        if (!g_fullLogged && TakeLine()) Log("rail  census table full (%d trains)", kMaxSeen);
+        g_fullLogged = true;
+        return nullptr;
     }
 
+    Seen& s = g_seen[g_seenCount];
+    s = Seen{};
+    s.veh  = v;
+    s.type = type;
+    s.id   = ++g_seenCount;
+    Read(v, V_CHAIN_NEXT, s.chainNext);
+    Read(v, V_CHAIN_AT, s.chainAt);
+    s.pax    = ReadConsist(v).paxUnits > 0;
+    s.lastGo = -1;
+    if (g_linesLeft >= 2) { g_linesLeft -= 2; LogNewTrain(s); }
+    else TakeLine();
+    return &s;
+}
+
+void Periodic()
+{
+    ULONGLONG now = GetTickCount64();
+    if (now - g_lastChains >= 60000) { g_lastChains = now; ChainCensus(); }
+    if (now - g_lastStats >= 30000)  { g_lastStats = now;  Stats(); }
+}
+
+void ObserveDivisor(BYTE* v)
+{
+    AcquireSRWLockExclusive(&g_lock);
+    Periodic();
+    if (Seen* s = Track(v))
+    {
+        ++s->divCalls;
+        BYTE* next = nullptr;
+        BYTE* at   = nullptr;
+        Read(v, V_CHAIN_NEXT, next);
+        Read(v, V_CHAIN_AT, at);
+        if ((s->chainNext != next || s->chainAt != at) && TakeLine())
+            Log("rail  chain train #%d %s next %p(t%d) -> %p(t%d), at %p(t%d) -> %p(t%d)", s->id, Kind(*s),
+                (void*)s->chainNext, ChainType(s->chainNext), (void*)next, ChainType(next),
+                (void*)s->chainAt, ChainType(s->chainAt), (void*)at, ChainType(at));
+        s->chainNext = next;
+        s->chainAt   = at;
+    }
     ReleaseSRWLockExclusive(&g_lock);
 }
 
+void ObserveSignal(BYTE* v, char go)
+{
+    AcquireSRWLockExclusive(&g_lock);
+    Periodic();
+    if (Seen* s = Track(v))
+    {
+        ++s->sigCalls;
+        int now = go ? 1 : 0;
+        if (now != s->lastGo)
+        {
+            SignalInfo si = NextSignal(v);
+            float speed = -1;
+            Read(v, V_SPEED, speed);
+            ULONGLONG t = GetTickCount64();
+            if (!now)
+            {
+                s->waitSince = t;
+                s->waitNode  = si.node;
+                if (TakeLine())
+                    Log("rail  sig   train #%d %s WAIT at node %p signal %p kind %d free %u/%u chain %u, v %.1f",
+                        s->id, Kind(*s), (void*)si.node, (void*)si.sig, si.kind, si.freeA, si.freeB, si.chain,
+                        speed);
+            }
+            else if (s->lastGo == 0)
+            {
+                if (TakeLine())
+                    Log("rail  sig   train #%d %s GO after %.1f s at node %p signal %p kind %d free %u/%u, v %.1f",
+                        s->id, Kind(*s), (double)(t - s->waitSince) / 1000.0, (void*)s->waitNode,
+                        (void*)si.sig, si.kind, si.freeA, si.freeB, speed);
+            }
+            s->lastGo = now;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_lock);
+}
+
+// ---------------------------------------------------------------- detours
+// Both call the original first and return its result untouched.
+
 float DivisorDetour(void* veh)
 {
-    float r = g_origDivisor(veh);   // the game's own result, untouched
-    if (veh) Observe((BYTE*)veh);
+    float r = g_origDivisor(veh);
+    if (veh) ObserveDivisor((BYTE*)veh);
+    return r;
+}
+
+char SignalDetour(void* lead)
+{
+    char r = g_origSignal(lead);
+    if (lead) ObserveSignal((BYTE*)lead, r);
     return r;
 }
 
@@ -337,19 +448,27 @@ bool Start(const TsmHost* host, HMODULE exe, const Config& cfg)
     g_chainVec = LocateChainVector(exe);
     if (g_chainVec) ChainCensus();   // at the main menu this is normally empty
 
-    if (!cfg.trainCensus)
+    bool hooked = false;
+
+    if (cfg.trainCensus)
     {
-        Log("rail  train census off (train_census = 0) - nothing hooked");
-        return false;
+        if (BYTE* divisor = LocateDivisor(exe))
+            hooked |= hooks::InstallHostHook("rail divisor (census)", divisor, (void*)&DivisorDetour,
+                                             (void**)&g_origDivisor, kDivisorExpect, sizeof(kDivisorExpect));
     }
+    else Log("rail  train census off (train_census = 0)");
 
-    BYTE* divisor = LocateDivisor(exe);
-    if (!divisor) return false;
+    if (cfg.signalCensus)
+    {
+        aob::Hit sig = aob::ScanModule(exe, ".text", kSigSignalFn, "signal check fn");
+        if (sig.result == aob::Result::Unique)
+            hooked |= hooks::InstallHostHook("rail signal (census)", sig.addr, (void*)&SignalDetour,
+                                             (void**)&g_origSignal, kSignalExpect, sizeof(kSignalExpect));
+    }
+    else Log("rail  signal census off (signal_census = 0)");
 
-    bool ok = hooks::InstallHostHook("rail divisor (census)", divisor, (void*)&DivisorDetour,
-                                     (void**)&g_origDivisor, kDivisorExpect, sizeof(kDivisorExpect));
-    if (ok) Log("rail  train census live: load a save with trains and let them run");
-    return ok;
+    Log("rail  census %s", hooked ? "live: load a save with trains and let them run" : "inactive - nothing hooked");
+    return hooked;
 }
 
 }  // namespace wrsr::rail_probe

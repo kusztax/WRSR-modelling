@@ -114,6 +114,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
 
     wrsr::rail_probe::Config rc;
     rc.trainCensus = H->configInt(kIni, kSection, "train_census", 0) != 0;
+    rc.signalCensus = H->configInt(kIni, kSection, "signal_census", 0) != 0;
     rc.logLimit    = H->configInt(kIni, kSection, "census_log_limit", 3000);
     bool hooked = wrsr::rail_probe::Start(H, g_exe, rc);
 

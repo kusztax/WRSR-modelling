@@ -6,12 +6,15 @@
 //    `float divisor(vehicle*)` through the LOADER's hook (it chains with
 //    RailPhysics / Rail Operations under RML). The detour calls the original
 //    first and returns its value untouched; afterwards, on the game thread, it
-//    logs each train once (consist, passenger or not, which block it engages)
-//    and every change of the block it engages. Every 60 s it also logs a
-//    histogram of chain types.
+//    logs each train once (consist, passenger or not) and every change of the
+//    station chain it heads for. Every 60 s a histogram of chain types, every
+//    30 s per-train call counts and speed.
+// 3. Optionally (ini `signal_census = 1`) hooks the game's signal check
+//    `char maySignalPass(lead)` the same way and logs every WAIT / GO change
+//    per train, with the signal's flags and how long the train waited.
 //
 // Purpose: confirm on 1.1.1.13 the offsets in game_offsets.h, and watch how
-// trains acquire blocks - the input for the signal-priority hook (M2).
+// trains wait at and pass signals - the input for the signal-priority hook.
 #pragma once
 
 #include <windows.h>
@@ -22,7 +25,8 @@ namespace wrsr::rail_probe {
 
 struct Config
 {
-    bool trainCensus = false;  // install the log-only divisor hook
+    bool trainCensus  = false;  // log-only hook on the rail acceleration helper
+    bool signalCensus = false;  // log-only hook on the signal check (go / wait)
     int  logLimit    = 3000;   // census lines per session, then silence
 };
 
