@@ -91,6 +91,8 @@ mehet) – ez az első verzióba is kerüljön bele.
 | M3 🔄 | v1 logika (kód kész, játékteszt hátra): személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; kapcsolók csak az ini-ben (semmi a mentésben) | 2–3 hét |
 | M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; **régi mentés betölthető a moddal, és a moddal készült mentés betölthető nélküle**; **natív Windows-on is** | 1–2 hét |
 | M5 | **Workshop-kiadás (v1)** – forrás nyilvánosan (GPL-3.0), leírásban a tesztelt loaderek és játékverzió | 1 hét |
+| M5.1 | **v1.1:** a visszatartott tehervonat jelzője pirosat mutasson (nem zöldet) – a jelző megjelenítésének visszafejtése | nyitott |
+| M5.2 | **v1.2:** „Vasúti elsőbbség” kutatás a pártközponti egyetemen, a Logistic optimalization után, 750 munkanap; kikutatott állapot saját fájlban (ki-be kapcsolás után is megmarad) – a kutatási rendszer visszafejtése | nyitott, a legnagyobb ismeretlen |
 | M6 | Egyenletes követés **minden játékos által beállított útvonalra** (vonat, busz, villamos, teherautó, …); elosztó és műszaki iroda járművei kivéve | nyitott, több hónap |
 | M7 | Körüljárás vonatelosztóból indított vonatoknál is (a Rail Operations ma csak a játékos kézzel beállított útvonalain járja körül a szerelvényt; elosztónál minden állomáshoz kézzel kell). A szerzővel egyeztetve, az ő pluginjára építve | nyitott |
 | M8 | Fordítókorong (a Rail Operationsben nincs): új épület + kód, ami rajta megfordítja a mozdonyt | nyitott |
