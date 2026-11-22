@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "mingw",
+      "displayName": "Windows x64 DLL (MinGW-w64 GCC, e.g. brew mingw-w64)",
+      "binaryDir": "${sourceDir}/build/mingw",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-mingw-w64-x86_64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "WRSR_MINGW_FLAVOR": "gcc"
+      }
+    },
+    {
+      "name": "llvm-mingw",
+      "displayName": "Windows x64 DLL (llvm-mingw clang)",
+      "binaryDir": "${sourceDir}/build/llvm-mingw",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-mingw-w64-x86_64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "WRSR_MINGW_FLAVOR": "clang",
+        "WRSR_MINGW_ROOT": "$env{LLVM_MINGW}"
+      }
+    },
+    {
+      "name": "host-tests",
+      "displayName": "Host-native unit tests (macOS/Linux)",
+      "binaryDir": "${sourceDir}/build/host",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "mingw",      "configurePreset": "mingw" },
+    { "name": "llvm-mingw", "configurePreset": "llvm-mingw" },
+    { "name": "host-tests", "configurePreset": "host-tests" }
+  ],
+  "testPresets": [
+    { "name": "host-tests", "configurePreset": "host-tests", "output": { "outputOnFailure": true } }
+  ]
+}
