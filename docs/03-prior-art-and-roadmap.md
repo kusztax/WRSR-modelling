@@ -86,12 +86,22 @@ mehet) – ez az első verzióba is kerüljön bele.
 | # | Kész, ha… | Becsült munka |
 |---|---|---|
 | M0 ✅ | `fake_host` PASSED CrossOverben, a játékban megjelenik a `probe ... 120.0` sor | **kész, 2026-11-22** |
-| M1 | Cheat Engine-nel igazolva 1.1.1.13-on: vonat `+0x3A0`, típus `+0x8600`, vonat `+0x528` | 1–2 hét |
-| M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor) | 2–4 hét |
-| M3 | Prioritás egyetlen kereszteződésen, időkorláttal, ini-kapcsolóval | 1–2 hét |
-| M4 | Teszt RailPhysics-szel és Rail Operations-szel együtt, RML és TesmioLoader alatt | 1 hét |
-| M5 | Felület: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (a v1 csak automatikus szabály + Scripts-kapcsoló; makett: https://claude.ai/artifact/C8X1HyHhfHo2Vd3k22QrWE) | 2–4 hét |
-| M6 | Külön funkció: egyenletes követés útvonalanként (OpenTTD-szerű elosztás, állomási visszatartással). Csak M4 után; előtte Workshop-keresés, nincs-e már ilyen | nyitott |
+| M1 | Vonatfelmérés (census) igazolja 1.1.1.13-on: vonat `+0x3A0`, típus `+0x8600`, vonat `+0x528` – lásd `04-m1-census.md` | 1 hét |
+| M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor); kiderül, hogyan dönt a vanilla két egyenrangú kérés között | 2–4 hét |
+| M3 | v1 logika: személy > teher, egyenrangúak között vanilla; időkorlát; holtpont elleni védelem; Scripts-kapcsoló + ini | 2–3 hét |
+| M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; mentés betölthető a mod nélkül; **natív Windows-on is** | 1–2 hét |
+| M5 | **Workshop-kiadás (v1)** – forrás nyilvánosan (GPL-3.0), leírásban a tesztelt loaderek és játékverzió | 1 hét |
+| M6 | Egyenletes követés **minden játékos által beállított útvonalra** (vonat, busz, villamos, teherautó, …); elosztó és műszaki iroda járművei kivéve | nyitott, több hónap |
+| M7 | Körüljárás automatizálása (a Rail Operations kézi megoldására építve vagy vele egyeztetve) | nyitott |
+| M8 | Fordítókorong | nyitott |
+
+Későbbi, opcionális: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (makett: https://claude.ai/artifact/C8X1HyHhfHo2Vd3k22QrWE).
+
+### Döntések (2026-11-22)
+
+- **Felület v1-ben:** nincs új gomb. Automatikus szabály (személykocsi a szerelvényben → elsőbbség) + Scripts menü kapcsoló + ini.
+- **Egyenrangú vonatok** (két személyvonat, vagy két tehervonat, akár szemből egymás felé): a mod **nem avatkozik be**, a játék saját döntése marad. Hogy az mi (érkezési sorrend vagy más), azt az M2 logjából derítjük ki; a v1 nem tesz rá semmit.
+- **Sorrend:** jelzőelsőbbség → Workshop → egyenletes követés → körüljárás → fordítókorong.
 
 Minden mérföldkő végén legyen egy mondat a logban, ami igazolja. Ha valami nem
 logolható, nem tudod bizonyítani, hogy működik.
