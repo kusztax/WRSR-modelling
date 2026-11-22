@@ -28,6 +28,10 @@ struct Hit
 // `label` as "+RVA". Never writes anything.
 Hit ScanModule(HMODULE module, const char* section, const char* pattern, const char* label);
 
+// Every match (up to `limit`). Logs nothing.
+std::vector<BYTE*> ScanAll(HMODULE module, const char* section, const char* pattern,
+                           size_t limit = 64);
+
 // Target of a rip-relative operand: `disp32At` is the address of the 4-byte
 // displacement, `insnEnd` the address of the next instruction.
 inline BYTE* RipTarget(BYTE* disp32At, BYTE* insnEnd)

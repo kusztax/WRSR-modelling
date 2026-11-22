@@ -58,7 +58,8 @@ add_library(wrsr_rail_mod SHARED
     src/hooks.cpp
     src/aob_pattern.cpp
     src/aob_scan.cpp
-    src/env_info.cpp)
+    src/env_info.cpp
+    src/rail_probe.cpp)
 
 target_include_directories(wrsr_rail_mod PRIVATE src third_party/tesmio)
 target_compile_definitions(wrsr_rail_mod PRIVATE

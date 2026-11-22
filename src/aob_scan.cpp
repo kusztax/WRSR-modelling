@@ -35,6 +35,16 @@ bool FindSection(HMODULE module, const char* name, Section& out)
     return false;
 }
 
+std::vector<BYTE*> ScanAll(HMODULE module, const char* section, const char* pattern, size_t limit)
+{
+    std::vector<BYTE*> out;
+    Pattern p;
+    Section s;
+    if (!Parse(pattern, p) || !FindSection(module, section, s)) return out;
+    for (size_t off : FindAll(s.start, s.size, p, limit)) out.push_back(s.start + off);
+    return out;
+}
+
 Hit ScanModule(HMODULE module, const char* section, const char* pattern, const char* label)
 {
     Hit hit;
