@@ -24,6 +24,11 @@ using namespace wrsr::off;
 // ret; mov rax,[rcx+6A8h]
 const char kSigSignalFn[] =
     "40 53 48 83 EC 70 80 B9 E0 05 00 00 00 48 8B D9 74 08 B0 01 48 83 C4 70 5B C3 48 8B 81 A8 06 00";
+// The same function after another plugin hooked it through the loader (Rail
+// Operations does): a 14-byte absolute jump `jmp [rip+0]; dq target` over the
+// prologue, then the untouched body. We then chain in front of that jump.
+const char kSigSignalHooked[] =
+    "FF 25 00 00 00 00 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 74 08 B0 01 48 83 C4 70 5B C3 48 8B 81 A8 06 00";
 const unsigned char kSignalExpect[16] = {
     0x40, 0x53,                                // push rbx
     0x48, 0x83, 0xEC, 0x70,                    // sub  rsp,70h
@@ -372,9 +377,58 @@ void Observe(BYTE* lead, char& answer)
 
 char SignalDetour(void* lead)
 {
-    char answer = g_origSignal(lead);   // the game's own answer first, always
+    // Installed from a background thread: in the instant before the loader
+    // has filled in the trampoline, the safe answer is "wait one more frame".
+    SignalFn orig = g_origSignal;
+    if (!orig) return 0;
+    char answer = orig(lead);   // the game's own answer first, always
     if (lead) Observe((BYTE*)lead, answer);
     return answer;
+}
+
+HMODULE g_exe = nullptr;
+
+void LogLive(const char* how)
+{
+    Log("prio  live (%s): priority %s in the ini (deadlock guard %d s), census %s", how,
+        g_cfg.priority ? "ON" : "off", g_cfg.maxHoldSec, g_cfg.census ? "on" : "off");
+}
+
+// In front of another plugin's 14-byte jump. True when hooked.
+bool InstallChained()
+{
+    aob::Hit hit = aob::ScanModule(g_exe, ".text", kSigSignalHooked, "signal check (hooked by another plugin)");
+    if (hit.result != aob::Result::Unique) return false;
+    unsigned char expect[14];
+    memcpy(expect, hit.addr, sizeof(expect));   // exactly that jump, nothing else
+    if (!hooks::InstallHostHook("rail signal check (chained)", hit.addr, (void*)&SignalDetour,
+                                (void**)&g_origSignal, expect, sizeof(expect)))
+        return false;
+    LogLive("chained in front of another plugin");
+    return true;
+}
+
+bool InstallNow()
+{
+    aob::Hit hit = aob::ScanModule(g_exe, ".text", kSigSignalFn, "signal check fn");
+    if (hit.result == aob::Result::Unique)
+    {
+        if (!hooks::InstallHostHook("rail signal check", hit.addr, (void*)&SignalDetour, (void**)&g_origSignal,
+                                    kSignalExpect, sizeof(kSignalExpect)))
+            return false;
+        LogLive("first owner");
+        return true;
+    }
+    if (InstallChained()) return true;
+    Log("prio  signal check changed in a way we do not know - priority OFF, game unchanged");
+    return false;
+}
+
+DWORD WINAPI DeferredInstall(LPVOID)
+{
+    Sleep(5000);
+    InstallNow();
+    return 0;
 }
 
 }  // namespace
@@ -399,21 +453,30 @@ bool Start(const TsmHost* host, HMODULE exe, const Config& cfg)
         return false;
     }
 
-    aob::Hit sig = aob::ScanModule(exe, ".text", kSigSignalFn, "signal check fn");
-    if (sig.result != aob::Result::Unique)
+    if (cfg.priority) script_switch::Init(host, exe);
+
+    g_exe = exe;
+    // Another plugin got there first: chain in front of it now.
+    if (InstallChained()) return true;
+
+    // Untouched: wait a few seconds before hooking, so that a plugin which
+    // starts after us and expects the original bytes (Rail Operations) still
+    // gets its own hook in - then we chain in front of it. The game is at its
+    // loading screen by then; no train asks the signal check yet.
+    if (aob::ScanModule(exe, ".text", kSigSignalFn, "signal check fn").result != aob::Result::Unique)
     {
         Log("prio  signal check not found - priority OFF, game unchanged");
         return false;
     }
-
-    if (cfg.priority) script_switch::Init(host, exe);
-
-    bool ok = hooks::InstallHostHook("rail signal check", sig.addr, (void*)&SignalDetour,
-                                     (void**)&g_origSignal, kSignalExpect, sizeof(kSignalExpect));
-    if (ok)
-        Log("prio  live: priority %s in the ini (deadlock guard %d s), census %s", cfg.priority ? "ON" : "off",
-            g_cfg.maxHoldSec, cfg.census ? "on" : "off");
-    return ok;
+    HANDLE th = CreateThread(nullptr, 0, DeferredInstall, nullptr, 0, nullptr);
+    if (!th)
+    {
+        Log("prio  could not start the deferred hook thread - hooking now");
+        return InstallNow();
+    }
+    CloseHandle(th);
+    Log("prio  signal check found; hooking in 5 s (after the other plugins)");
+    return true;   // a hook is coming: the plugin must stay loaded
 }
 
 }  // namespace wrsr::signal_priority

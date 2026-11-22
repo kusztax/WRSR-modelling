@@ -34,7 +34,11 @@ if [ -z "$OWNER" ]; then
     echo "[deploy] could not read your Steam ID from $STEAM/config/loginusers.vdf" >&2
     exit 1
 fi
+# One $OBJECT_SCRIPT line per button: the script's name and the label the
+# game shows. The flag script has none, so it is not a button.
 printf '%s\n\n' '$ITEM_ID '"$ITEM" '$OWNER_ID '"$OWNER" '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT' '$VISIBILITY 2' \
+    '$OBJECT_SCRIPT RailPriority_On "Rail priority: ON - passenger trains first at signals"' \
+    '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"' \
     '$ITEM_NAME "Rail Priority (local test)"' '$ITEM_DESC "Local test build. Do not upload."' '$END' \
     > "$WIP/workshopconfig.ini"
 echo "[deploy] scripts -> media_soviet/workshop_wip/$ITEM (owner $OWNER)"

@@ -92,8 +92,8 @@ mehet) – ez az első verzióba is kerüljön bele.
 | M4 | Kiadási teszt: TesmioLoader és RML; egyedül, RailPhysics-szel, Rail Operations-szel; **régi mentés betölthető a moddal, és a moddal készült mentés betölthető nélküle**; **natív Windows-on is** | 1–2 hét |
 | M5 | **Workshop-kiadás (v1)** – forrás nyilvánosan (GPL-3.0), leírásban a tesztelt loaderek és játékverzió | 1 hét |
 | M6 | Egyenletes követés **minden játékos által beállított útvonalra** (vonat, busz, villamos, teherautó, …); elosztó és műszaki iroda járművei kivéve | nyitott, több hónap |
-| M7 | Körüljárás automatizálása (a Rail Operations kézi megoldására építve vagy vele egyeztetve) | nyitott |
-| M8 | Fordítókorong | nyitott |
+| M7 | Körüljárás vonatelosztóból indított vonatoknál is (a Rail Operations ma csak a játékos kézzel beállított útvonalain járja körül a szerelvényt; elosztónál minden állomáshoz kézzel kell). A szerzővel egyeztetve, az ő pluginjára építve | nyitott |
+| M8 | Fordítókorong (a Rail Operationsben nincs): új épület + kód, ami rajta megfordítja a mozdonyt | nyitott |
 
 Későbbi, opcionális: vonat-ablak címke + Auto/Mindig/Soha felülbírálás (makett: https://claude.ai/artifact/C8X1HyHhfHo2Vd3k22QrWE).
 

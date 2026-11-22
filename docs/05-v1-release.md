@@ -6,7 +6,7 @@
 |---|---|
 | Elsőbbség: várakozó tehervonat WAIT-et kap, amíg személyvonat vár ugyanarra a blokkra; a tehervonat kiéheztethető | `src/signal_priority.cpp`, `src/priority_policy.*` |
 | Holtpont-védelem: ha **ugyanaz** a személyvonat `max_hold_s` ideig nem halad, a tehervonat mehet (30/60/90/120/180) | `config/wrsr_rail_mod.ini` |
-| Beállítások → Szkriptek: BE és KI gomb, mentésenként; alapból BE | `workshop/item/RailPriority_*.txt`, `src/script_switch.*` |
+| Beállítások → Szkriptek: BE és KI gomb (felirat a workshopconfig `$OBJECT_SCRIPT` soraiból, nem fordítható), mentésenként; alapból BE | `workshop/item/RailPriority_*.txt`, `src/script_switch.*` |
 | Gombnyomásra értesítés a játékos nyelvén (25 nyelvi tábla, ismeretlen nyelv: angol) | `src/lang.*` |
 | Ikonok | `workshop/art/*.svg` → `workshop/item/*.png` |
 
@@ -32,3 +32,5 @@ Mac/CrossOver, `tools/deploy-mac.sh` után:
        eltávolítva) – különösen KI állapotban mentve (fut a flag-szkript).
 9. [ ] Windows natívan: 1–8.
 10. [ ] RML alatt: 1–4; Rail Operations-szel és RailPhysics-szel együtt.
+11. [ ] TesmioLoader + Rail Operations: log `prio  live (chained in front of another plugin)`,
+        és a Rail Operations `signal check hooked` sora is megvan; mindkettő működik.

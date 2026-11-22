@@ -137,6 +137,15 @@ void NoteFile(const char* path)
     for (const Texts& t : kTexts)
         if (strstr(lang, t.token)) { pick = &t; known = true; break; }
 
+    // The game opens the chosen language and then sovietEnglish.btf as the
+    // fallback for missing texts: English right after another language is
+    // that fallback, not a choice.
+    static ULONGLONG lastOther = 0;
+    ULONGLONG now = GetTickCount64();
+    bool english = strcmp(pick->token, "english") == 0 && known;
+    if (!english) lastOther = now;
+    else if (lastOther && now - lastOther < 3000) return;
+
     if (pick != g_current || !known)
     {
         Apply(pick);
