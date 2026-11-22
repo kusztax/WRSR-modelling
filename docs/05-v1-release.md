@@ -30,12 +30,24 @@ Mac/CrossOver, `tools/deploy-mac.sh` után:
 3. [x] KI gomb (2026-11-22, Mac): értesítés a játék nyelvén; log `Scripts menu: priority OFF`;
        a tesztpályán a tehervonat újra „versenyez”.
 4. [x] BE gomb (2026-11-22, Mac): értesítés; log `priority ON`; a személyvonat megy elsőként.
-5. [ ] Mentés KI állapotban, újratöltés: KI marad. Mentés BE állapotban: BE.
-6. [ ] Nyelvváltás a beállításokban: a következő értesítés az új nyelven.
-7. [ ] Régi mentés (a mod előtti) betölt, az elsőbbség BE.
-8. [ ] A moddal készült mentés betölt a mod nélkül (plugin és szkriptek
+5. [x] Mentés KI állapotban, újratöltés: KI marad. Mentés BE állapotban: BE.
+6. [~] Nyelvváltás: a játék csak induláskor vált nyelvet; induláskor a magyar felismerve. (Angol indulás próbája opcionális.)
+7. [x] Régi mentés (a mod előtti) betölt, az elsőbbség BE.
+8. [x] A moddal készült mentés betölt a mod nélkül (plugin és szkriptek
        eltávolítva) – különösen KI állapotban mentve (fut a flag-szkript).
-9. [ ] Windows natívan: 1–8.
+9. [x] Windows natívan (2026-11-22).
 10. [ ] RML alatt: 1–4; Rail Operations-szel és RailPhysics-szel együtt.
 11. [x] TesmioLoader + Rail Operations (hook elé fűzve, 2026-11-22): log `prio  live (chained in front of another plugin)`,
         és a Rail Operations `signal check hooked` sora is megvan; mindkettő működik.
+
+## Kiadás
+
+1. RML-teszt (10. pont) – a leírás RML-támogatást ígér, enélkül nem mehet ki.
+2. A repó publikus (GPL-3.0: a forrásnak elérhetőnek kell lennie).
+3. `tools/package-release.sh` → `dist/RailPriority/`, és ha `GAME` be van
+   állítva, `media_soviet/workshop_wip/RailPriority/`.
+4. Feltöltés a játék Műhely-szerkesztőjéből. Az első feltöltés után a játék
+   beírja az `$ITEM_ID`/`$OWNER_ID` sorokat a workshopconfig.ini-be: ezt a
+   fájlt meg kell tartani (a script a következő csomagoláskor átveszi).
+5. Utána a helyi tesztmappa (`workshop_wip/9957001`) törlése, különben a
+   gombok kétszer látszanak.

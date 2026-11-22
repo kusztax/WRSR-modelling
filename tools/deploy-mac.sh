@@ -28,6 +28,10 @@ ITEM=9957001
 WIP="$GAME/media_soviet/workshop_wip/$ITEM"
 mkdir -p "$WIP"
 cp -f workshop/item/*.txt workshop/item/*.png "$WIP/"
+# Republic Mod Loader finds plugins in a plugins/ folder of a workshop_wip
+# project; TesmioLoader does not look there, so this is not a second copy for it.
+mkdir -p "$WIP/plugins"
+cp -f build/mingw/wrsr_rail_mod.dll build/mingw/wrsr_rail_mod.ini "$WIP/plugins/"
 
 OWNER=$(grep -hoE '"7656119[0-9]{10}"' "$STEAM/config/loginusers.vdf" 2>/dev/null | head -n 1 | tr -d '"')
 if [ -z "$OWNER" ]; then
