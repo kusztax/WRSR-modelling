@@ -52,6 +52,12 @@ tudásbázis szerint a Linuxos Proton prefixben a pluginek változatlanul futnak
 **CrossOver + Rosetta 2 alatt ezt senki nem dokumentálta** – ezt neked kell
 először igazolnod. Ezért van a `fake_host.exe` (lásd `02-crossover-setup.md`).
 
+**Igazolva (2026-11-22), `fake_host`, a játék nélkül:** CrossOver (Wine 11.0),
+macOS Darwin 27.2.0, Apple Silicon (Rosetta 2), Homebrew MinGW GCC 16.2.0
+(UCRT) build. A DLL betöltődik, `Init`/`Start` lefut, a MinHook önteszt
+PASSED – a kódpatchelés Rosetta alatt működik. A loaderrel, a játékban
+futtatott teszt még hátravan.
+
 Figyelem: a TesmioLoader launcher **verzióellenőrzést** végez; a mostani verzió
 csak a `1.1.1.13` buildet (PE timestamp `0x6A8D4087`) fogadja el. A pluginünk
 logja kiírja a játék verzióját és PE-időbélyegét – ha nem egyezik, a launcher
