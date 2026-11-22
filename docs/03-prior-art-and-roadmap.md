@@ -85,7 +85,7 @@ mehet) – ez az első verzióba is kerüljön bele.
 
 | # | Kész, ha… | Becsült munka |
 |---|---|---|
-| M0 | `fake_host` PASSED CrossOverben, a játékban megjelenik a `probe ... 120.0` sor | 1 este (ez a repo) |
+| M0 ✅ | `fake_host` PASSED CrossOverben, a játékban megjelenik a `probe ... 120.0` sor | **kész, 2026-11-22** |
 | M1 | Cheat Engine-nel igazolva 1.1.1.13-on: vonat `+0x3A0`, típus `+0x8600`, vonat `+0x528` | 1–2 hét |
 | M2 | Ghidrában megvan a blokkfoglaló függvény + egyedi AOB-minta; csak **logoló** hook (ki kér, mit, mikor) | 2–4 hét |
 | M3 | Prioritás egyetlen kereszteződésen, időkorláttal, ini-kapcsolóval | 1–2 hét |

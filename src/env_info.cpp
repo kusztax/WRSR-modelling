@@ -94,7 +94,7 @@ void LogAll(HMODULE exe, HMODULE self)
     Log("env   process  %s (pid %lu)", exePath, (unsigned long)GetCurrentProcessId());
     Log("env   exe      base %p, image 0x%lX, version %s, PE stamp 0x%08lX",
         (void*)exe, (unsigned long)info.exeSizeOfImage,
-        info.exeVersion[0] ? info.exeVersion : "(none)", (unsigned long)info.exeTimeStamp);
+        info.exeVersion[0] ? info.exeVersion : "n/a (no VERSIONINFO; the PE stamp identifies the build)", (unsigned long)info.exeTimeStamp);
     Log("env   plugin   base %p", (void*)self);
 
     if (info.wineVersion[0])

@@ -55,8 +55,22 @@ először igazolnod. Ezért van a `fake_host.exe` (lásd `02-crossover-setup.md`
 **Igazolva (2026-11-22), `fake_host`, a játék nélkül:** CrossOver (Wine 11.0),
 macOS Darwin 27.2.0, Apple Silicon (Rosetta 2), Homebrew MinGW GCC 16.2.0
 (UCRT) build. A DLL betöltődik, `Init`/`Start` lefut, a MinHook önteszt
-PASSED – a kódpatchelés Rosetta alatt működik. A loaderrel, a játékban
-futtatott teszt még hátravan.
+PASSED – a kódpatchelés Rosetta alatt működik.
+
+**Igazolva (2026-11-22), a játékban:** TesmioLoader b0.4.3 (Workshop
+3773169177) `--nogui`-val indítva ugyanebben a bottle-ben. A loader injektál
+(főmenü: `tesmioloader v. 0.4.3`), a plugin `Init`/`Start` lefut a
+`SOVIET64.exe` 1.1.1.13-ban (PE stamp `0x6A8D4087`), MinHook önteszt PASSED,
+és a railspeed `SIG_C` mintája 1.1.1.13-on is egyedi: `+0x3BCE90`, a
+konstans 120.0. A `SOVIET64.exe`-ben nincs VERSIONINFO – a build azonosítója
+a PE timestamp.
+
+Gyakorlati megjegyzések a CrossOveres telepítéshez:
+- A Workshopos TesmioLoader kiadás lapos: `tesmioloader/{tesmiolauncher.exe,
+  tesmioloader.dll, tesmioloader.ini, plugins/, vfs/}` – nincs `build/`.
+- A loader a Workshop-mappát is végigjárja DLL-ekért; ezért egy
+  feliratkozott, mástól származó plugin (pl. `achieve.dll`) is betöltődik.
+  Tiszta teszthez: `[plugins]` szekció, `achieve = 0`.
 
 Figyelem: a TesmioLoader launcher **verzióellenőrzést** végez; a mostani verzió
 csak a `1.1.1.13` buildet (PE timestamp `0x6A8D4087`) fogadja el. A pluginünk
