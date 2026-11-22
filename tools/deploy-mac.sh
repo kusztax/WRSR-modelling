@@ -24,6 +24,7 @@ cp -f build/mingw/wrsr_rail_mod.dll build/mingw/wrsr_rail_mod.ini "$GAME/tesmiol
 # The Scripts menu buttons come from a Workshop item. For testing, a local
 # project in workshop_wip: the game lists its scripts only when $ITEM_ID is the
 # folder's number and $OWNER_ID is the player (Rail Operations' finding).
+# $VISIBILITY 0 is the game's 'not published'; 2 would be public.
 ITEM=9957001
 WIP="$GAME/media_soviet/workshop_wip/$ITEM"
 mkdir -p "$WIP"
@@ -41,7 +42,7 @@ if [ -z "$OWNER" ]; then
 fi
 # One $OBJECT_SCRIPT line per button: the script's name and the label the
 # game shows. The flag script has none, so it is not a button.
-printf '%s\n\n' '$ITEM_ID '"$ITEM" '$OWNER_ID '"$OWNER" '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT' '$VISIBILITY 2' \
+printf '%s\n\n' '$ITEM_ID '"$ITEM" '$OWNER_ID '"$OWNER" '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT' '$VISIBILITY 0' \
     '$OBJECT_SCRIPT RailPriority_On "Rail priority: ON - passenger trains first at signals"' \
     '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"' \
     '$ITEM_NAME "Rail Priority (local test)"' '$ITEM_DESC "Local test build. Do not upload."' '$END' \

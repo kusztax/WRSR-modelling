@@ -1,11 +1,14 @@
 #!/bin/sh
-# Assemble the Workshop item in dist/RailPriority/ (and, with GAME set, copy it
-# into media_soviet/workshop_wip/RailPriority for the in-game upload).
+# Assemble the Workshop item in dist/RailPriority/ and, with GAME set, copy it
+# into the game's project folder for the Workshop item, from which the game's
+# Workshop screen uploads it.
 #
 #   tools/package-release.sh
 #
-# The game adds $ITEM_ID and $OWNER_ID to workshopconfig.ini on the first
-# upload: keep that file afterwards, or the next upload makes a new item.
+# The project was created in the game (Workshop -> +), which gave it its
+# Workshop id and wrote $ITEM_ID, $OWNER_ID and $VISIBILITY into its
+# workshopconfig.ini. Those lines are kept; everything else is ours.
+ITEM=3844461371
 set -e
 cd "$(dirname "$0")/.."
 if [ -f "$HOME/wrsr-env.sh" ]; then . "$HOME/wrsr-env.sh"; fi
@@ -39,14 +42,15 @@ echo "[package] $OUT:"
 ls -R "$OUT"
 
 if [ -n "$GAME" ] && [ -d "$GAME/media_soviet" ]; then
-    DEST="$GAME/media_soviet/workshop_wip/RailPriority"
-    if [ -f "$DEST/workshopconfig.ini" ] && grep -q '^\$ITEM_ID' "$DEST/workshopconfig.ini"; then
-        # already uploaded once: keep its ids
-        ids=$(grep -E '^\$(ITEM_ID|OWNER_ID)' "$DEST/workshopconfig.ini")
-        { printf '%s\n\n' "$ids"; cat "$OUT/workshopconfig.ini"; } > "$OUT/workshopconfig.ini.new"
-        mv "$OUT/workshopconfig.ini.new" "$OUT/workshopconfig.ini"
+    DEST="$GAME/media_soviet/workshop_wip/$ITEM"
+    if [ ! -f "$DEST/workshopconfig.ini" ] || ! grep -q "^\$ITEM_ID $ITEM" "$DEST/workshopconfig.ini"; then
+        echo "[package] $DEST has no workshopconfig.ini for item $ITEM - create the item in the game first" >&2
+        exit 1
     fi
-    mkdir -p "$DEST"
+    ids=$(grep -E '^\$(ITEM_ID|OWNER_ID|VISIBILITY)' "$DEST/workshopconfig.ini")
+    { printf '%s\n\n' "$ids"; cat "$OUT/workshopconfig.ini"; } > "$OUT/workshopconfig.ini.new"
+    mv "$OUT/workshopconfig.ini.new" "$OUT/workshopconfig.ini"
     cp -R "$OUT/." "$DEST/"
-    echo "[package] copied to media_soviet/workshop_wip/RailPriority"
+    echo "[package] copied to media_soviet/workshop_wip/$ITEM (ids and visibility kept):"
+    grep -E '^\$(ITEM_ID|OWNER_ID|VISIBILITY|ITEM_NAME)' "$DEST/workshopconfig.ini"
 fi
