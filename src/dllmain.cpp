@@ -20,6 +20,7 @@
 #include "aob_scan.h"
 #include "env_info.h"
 #include "hooks.h"
+#include "lang.h"
 #include "logger.h"
 #include "rail_probe.h"
 #include "signal_priority.h"
@@ -126,6 +127,9 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     sc.maxHoldSec = H->configInt(kIni, kSection, "max_hold_s", 60);
     sc.logLimit   = logLimit;
     hooked |= wrsr::signal_priority::Start(H, g_exe, sc);
+
+    // Texts for the Scripts menu notifications, in the game's language.
+    if (sc.priority) hooked |= wrsr::lang::Init(H, g_exe, g_engine);
 
     Log("start done - %s", hooked ? "hooks live (see prio / rail lines above)" : "no game code patched");
     return 0;

@@ -1,6 +1,7 @@
 #include "signal_priority.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "aob_scan.h"
@@ -8,6 +9,7 @@
 #include "hooks.h"
 #include "logger.h"
 #include "priority_policy.h"
+#include "script_switch.h"
 #include "tesmio_api.h"
 
 namespace wrsr::signal_priority {
@@ -265,6 +267,15 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
     // freight train in front of a known block can be held.
     if ((!t.waiting && !t.holdStart) || !t.blockKey) return gameAnswer;
 
+    // Switched off in the Scripts menu (per save): let a held train go.
+    if (script_switch::PriorityOffByScript())
+    {
+        if (t.holdStart && TakeLine())
+            Log("prio  GO     train #%d FRT released: priority switched off in the Scripts menu", t.id);
+        t.holdStart = 0;
+        return gameAnswer;
+    }
+
     // Gather the passenger trains that might compete for this block.
     priority::PaxView view[64];
     int n = 0;
@@ -373,7 +384,14 @@ bool Start(const TsmHost* host, HMODULE exe, const Config& cfg)
     g_host      = host;
     g_cfg       = cfg;
     g_linesLeft = cfg.logLimit > 0 ? cfg.logLimit : 0;
-    g_pcfg.maxHoldMs = (uint32_t)(cfg.maxHoldSec > 0 ? cfg.maxHoldSec : 60) * 1000u;
+    // The offered values; anything else snaps to the nearest one.
+    static const int kHold[] = {30, 60, 90, 120, 180};
+    int hold = kHold[0];
+    for (int v : kHold)
+        if (abs(v - cfg.maxHoldSec) < abs(hold - cfg.maxHoldSec)) hold = v;
+    if (hold != cfg.maxHoldSec) Log("prio  max_hold_s = %d is not offered, using %d", cfg.maxHoldSec, hold);
+    g_cfg.maxHoldSec = hold;
+    g_pcfg.maxHoldMs = (uint32_t)hold * 1000u;
 
     if (!cfg.census && !cfg.priority)
     {
@@ -388,11 +406,13 @@ bool Start(const TsmHost* host, HMODULE exe, const Config& cfg)
         return false;
     }
 
+    if (cfg.priority) script_switch::Init(host, exe);
+
     bool ok = hooks::InstallHostHook("rail signal check", sig.addr, (void*)&SignalDetour,
                                      (void**)&g_origSignal, kSignalExpect, sizeof(kSignalExpect));
     if (ok)
-        Log("prio  live: priority %s (freight held at most %d s), census %s", cfg.priority ? "ON" : "off",
-            cfg.maxHoldSec, cfg.census ? "on" : "off");
+        Log("prio  live: priority %s in the ini (deadlock guard %d s), census %s", cfg.priority ? "ON" : "off",
+            g_cfg.maxHoldSec, cfg.census ? "on" : "off");
     return ok;
 }
 

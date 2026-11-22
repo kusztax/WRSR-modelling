@@ -1,0 +1,16 @@
+// Rail Priority - button: passenger trains go first at signals (ON).
+// Stops the OFF flag script, if it runs, and says so in the player's language
+// (text ids 1957001 / 1957002 are served by wrsr_rail_mod.dll).
+
+include("SOVIETInstructions.txt");
+
+defineVariable(char, bOff);
+defineVariable(vec3, vWhere);
+
+defineFunction(main, void)
+{
+	Script_Exists("RailPriority_OffFlag.txt", bOff);
+	if (bOff) { Script_DestroyByName("RailPriority_OffFlag.txt"); }
+	Notification_CreateNewLangIDPic(1957001, 1957002, "", vWhere);
+	end();
+}
