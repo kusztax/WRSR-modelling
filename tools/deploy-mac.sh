@@ -28,6 +28,7 @@ ITEM=9957001
 WIP="$GAME/media_soviet/workshop_wip/$ITEM"
 mkdir -p "$WIP"
 cp -f workshop/item/*.txt workshop/item/*.png "$WIP/"
+cp -f workshop/art/previewimage.png "$WIP/previewimage.png"
 # Republic Mod Loader finds plugins in a plugins/ folder of a workshop_wip
 # project; TesmioLoader does not look there, so this is not a second copy for it.
 mkdir -p "$WIP/plugins"

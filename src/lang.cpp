@@ -199,19 +199,29 @@ int h_readFile(const char* p, char** out, unsigned* size, bool b) { NoteFile(p);
 const char kEngine[] = "C3DDLL64.dll";
 const char kStdio[]  = "api-ms-win-crt-stdio-l1-1-0.dll";
 
+// Ask for a hook only on an import the module really has: a request for a
+// missing one is harmless, but Republic Mod Loader then marks the whole
+// plugin DEGRADED in its window.
+int Patch(const TsmHost* h, HMODULE mod, const char* dll, const char* fn, void* detour, void** orig,
+          const char* label)
+{
+    if (!h->findIatSlot(mod, dll, fn)) return 0;
+    return h->patchIat(mod, dll, fn, detour, orig, label) != 0;
+}
+
 template <int M>
 int WatchOpens(const TsmHost* h, HMODULE mod, const char* who)
 {
     int n = 0;
     char label[64];
     snprintf(label, sizeof(label), "lang fopen (%s)", who);
-    n += h->patchIat(mod, kStdio, "fopen", (void*)&h_fopen<M>, (void**)&o_fopen[M], label) != 0;
+    n += Patch(h, mod, kStdio, "fopen", (void*)&h_fopen<M>, (void**)&o_fopen[M], label);
     snprintf(label, sizeof(label), "lang _wfopen (%s)", who);
-    n += h->patchIat(mod, kStdio, "_wfopen", (void*)&h_wfopen<M>, (void**)&o_wfopen[M], label) != 0;
+    n += Patch(h, mod, kStdio, "_wfopen", (void*)&h_wfopen<M>, (void**)&o_wfopen[M], label);
     snprintf(label, sizeof(label), "lang fopen_s (%s)", who);
-    n += h->patchIat(mod, kStdio, "fopen_s", (void*)&h_fopen_s<M>, (void**)&o_fopen_s[M], label) != 0;
+    n += Patch(h, mod, kStdio, "fopen_s", (void*)&h_fopen_s<M>, (void**)&o_fopen_s[M], label);
     snprintf(label, sizeof(label), "lang _wfopen_s (%s)", who);
-    n += h->patchIat(mod, kStdio, "_wfopen_s", (void*)&h_wfopen_s<M>, (void**)&o_wfopen_s[M], label) != 0;
+    n += Patch(h, mod, kStdio, "_wfopen_s", (void*)&h_wfopen_s<M>, (void**)&o_wfopen_s[M], label);
     return n;
 }
 
@@ -230,8 +240,8 @@ bool Init(const TsmHost* host, HMODULE exe, HMODULE engine)
 
     int watched = WatchOpens<0>(host, exe, "exe");
     if (engine) watched += WatchOpens<1>(host, engine, "engine");
-    watched += host->patchIat(exe, kEngine, "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z",
-                              (void*)&h_readFile, (void**)&o_readFile, "lang ReadFileIntoBuffer") != 0;
+    watched += Patch(host, exe, kEngine, "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z",
+                     (void*)&h_readFile, (void**)&o_readFile, "lang ReadFileIntoBuffer");
     Log("lang  texts ready (English until the game opens its language file); %d file hooks", watched);
     return true;
 }
