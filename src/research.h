@@ -16,7 +16,7 @@ namespace wrsr::research {
 constexpr int ID_NAME = 1957021;
 constexpr int ID_DESC = 1957022;
 
-void Init(HMODULE self, bool enabled);
+void Init(HMODULE self, bool enabled, bool probe);
 
 // File-open filters, called by the lang hooks before the real open: return
 // the path to open instead (the same pointer when nothing changes).

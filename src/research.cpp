@@ -12,6 +12,8 @@ namespace wrsr::research {
 namespace {
 
 bool    g_enabled = false;
+bool    g_probe   = false;
+volatile LONG g_probeStarted = 0;
 char    g_pluginDir[MAX_PATH * 2] = "";
 char    g_tempIni[MAX_PATH * 2]   = "";
 wchar_t g_tempIniW[MAX_PATH * 2]  = L"";
@@ -155,6 +157,68 @@ bool BuildCopy(const char* src)
     return true;
 }
 
+// ---- memory probe (v1.2 research state): where do the research objects
+// live, and which byte says "completed"? Runs once, 5 s after the game opened
+// research.ini, on its own thread; reads through ReadProcessMemory, so a page
+// freed meanwhile is skipped instead of crashing the game.
+
+const char* const kProbeIdents[] = {"phone_tapping", "chemistry_init", "logistic_optimization",
+                                    "distribution_office", "rail_priority"};
+
+void DumpAround(const BYTE* at, const char* ident)
+{
+    BYTE buf[0x40 + 0x140];
+    SIZE_T got = 0;
+    if (!ReadProcessMemory(GetCurrentProcess(), at - 0x40, buf, sizeof(buf), &got) || got != sizeof(buf)) return;
+    Log("probe %s at %p:", ident, (const void*)at);
+    for (int row = 0; row < (int)sizeof(buf); row += 32)
+    {
+        char line[32 * 3 + 16];
+        int n = 0;
+        for (int i = 0; i < 32; ++i) n += snprintf(line + n, sizeof(line) - n, "%02X ", buf[row + i]);
+        Log("probe   %+05X %s", row - 0x40, line);
+    }
+}
+
+DWORD WINAPI ProbeThread(void*)
+{
+    Sleep(5000);
+    Log("probe research objects: scanning memory");
+    const SIZE_T kChunk = 1 << 20;
+    BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + 64, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!chunk) return 0;
+    int hits[5] = {0, 0, 0, 0, 0};
+    MEMORY_BASIC_INFORMATION mi;
+    for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+    {
+        if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || mi.Protect != PAGE_READWRITE) continue;
+        BYTE* base = (BYTE*)mi.BaseAddress;
+        for (SIZE_T off = 0; off < mi.RegionSize; off += kChunk)
+        {
+            SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
+            SIZE_T got = 0;
+            if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
+            for (int k = 0; k < 5; ++k)
+            {
+                const char* id = kProbeIdents[k];
+                size_t len = strlen(id) + 1;   // with its 0
+                if (hits[k] >= 6) continue;
+                for (SIZE_T i = 1; i + len <= got; ++i)
+                {
+                    if (chunk[i] != (BYTE)id[0] || memcmp(chunk + i, id, len) != 0) continue;
+                    if (chunk[i - 1] != 0) continue;   // a whole string, not a tail
+                    DumpAround(base + off + i, id);
+                    if (++hits[k] >= 6) break;
+                }
+            }
+        }
+    }
+    VirtualFree(chunk, 0, MEM_RELEASE);
+    Log("probe done: hits %d %d %d %d %d (phone_tapping chemistry_init logistic_optimization "
+        "distribution_office rail_priority)", hits[0], hits[1], hits[2], hits[3], hits[4]);
+    return 0;
+}
+
 const char* Map(const char* p, bool* changed)
 {
     *changed = false;
@@ -165,6 +229,11 @@ const char* Map(const char* p, bool* changed)
         AcquireSRWLockExclusive(&g_lock);
         bool ok = BuildCopy(p);
         ReleaseSRWLockExclusive(&g_lock);
+        if (ok && g_probe && InterlockedExchange(&g_probeStarted, 1) == 0)
+        {
+            HANDLE th = CreateThread(nullptr, 0, ProbeThread, nullptr, 0, nullptr);
+            if (th) CloseHandle(th);
+        }
         if (ok) { *changed = true; return g_tempIni; }
     }
     else if (IsOurPng(p) && g_png[0] && GetFileAttributesA(g_png) != INVALID_FILE_ATTRIBUTES)
@@ -192,9 +261,10 @@ wchar_t g_text[2][512];
 
 }  // namespace
 
-void Init(HMODULE self, bool enabled)
+void Init(HMODULE self, bool enabled, bool probe)
 {
     g_enabled = enabled;
+    g_probe   = probe;
     if (!enabled) { Log("research off in the ini"); return; }
 
     DWORD n = GetModuleFileNameA(self, g_pluginDir, sizeof(g_pluginDir));
