@@ -21,31 +21,13 @@ cmake --build --preset mingw
 echo "[deploy] plugin -> tesmioloader/plugins"
 cp -f build/mingw/wrsr_rail_mod.dll build/mingw/wrsr_rail_mod.ini "$GAME/tesmioloader/plugins/"
 
-# The Scripts menu buttons come from a Workshop item. For testing, a local
-# project in workshop_wip: the game lists its scripts only when $ITEM_ID is the
-# folder's number and $OWNER_ID is the player (Rail Operations' finding).
-# $VISIBILITY 0 is the game's 'not published'; 2 would be public.
-ITEM=9957001
-WIP="$GAME/media_soviet/workshop_wip/$ITEM"
-mkdir -p "$WIP"
-cp -f workshop/item/*.txt workshop/item/*.png "$WIP/"
-cp -f workshop/art/previewimage.png "$WIP/previewimage.png"
-# Republic Mod Loader finds plugins in a plugins/ folder of a workshop_wip
-# project; TesmioLoader does not look there, so this is not a second copy for it.
-mkdir -p "$WIP/plugins"
-cp -f build/mingw/wrsr_rail_mod.dll build/mingw/wrsr_rail_mod.ini "$WIP/plugins/"
-
-OWNER=$(grep -hoE '"7656119[0-9]{10}"' "$STEAM/config/loginusers.vdf" 2>/dev/null | head -n 1 | tr -d '"')
-if [ -z "$OWNER" ]; then
-    echo "[deploy] could not read your Steam ID from $STEAM/config/loginusers.vdf" >&2
-    exit 1
+# The Scripts menu buttons come from the published Workshop item (subscribe
+# to 3844461371). A local DLL in tesmioloader/plugins wins over the one in
+# the Workshop folder, so this tests the new build with the published buttons.
+# (The old local test project, workshop_wip/9957001, is no longer made: with
+# the subscription it would show every button twice.)
+if [ -n "$ASPECT" ]; then
+    sed -i '' "s/^signal_aspect = .*/signal_aspect = $ASPECT/" "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
+    echo "[deploy] signal_aspect = $ASPECT"
 fi
-# One $OBJECT_SCRIPT line per button: the script's name and the label the
-# game shows. The flag script has none, so it is not a button.
-printf '%s\n\n' '$ITEM_ID '"$ITEM" '$OWNER_ID '"$OWNER" '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT' '$VISIBILITY 0' \
-    '$OBJECT_SCRIPT RailPriority_On "Rail priority: ON - passenger trains first at signals"' \
-    '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"' \
-    '$ITEM_NAME "Rail Priority (local test)"' '$ITEM_DESC "Local test build. Do not upload."' '$END' \
-    > "$WIP/workshopconfig.ini"
-echo "[deploy] scripts -> media_soviet/workshop_wip/$ITEM (owner $OWNER)"
 echo "[deploy] ok - start the game with tesmiolauncher.exe --nogui"

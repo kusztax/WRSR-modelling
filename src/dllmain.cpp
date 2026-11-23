@@ -125,6 +125,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     sc.census     = H->configInt(kIni, kSection, "signal_census", 0) != 0;
     sc.priority   = H->configInt(kIni, kSection, "priority", 1) != 0;
     sc.maxHoldSec = H->configInt(kIni, kSection, "max_hold_s", 60);
+    sc.aspect     = H->configInt(kIni, kSection, "signal_aspect", 0) != 0;
     sc.logLimit   = logLimit;
     hooked |= wrsr::signal_priority::Start(H, g_exe, sc);
 

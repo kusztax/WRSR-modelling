@@ -23,4 +23,7 @@ bool Init(const TsmHost* host, HMODULE exe);
 // Call from the game thread (the signal hook).
 bool PriorityOffByScript();
 
+// The game's world object (what the game's own functions take), or null.
+void* World();
+
 }  // namespace wrsr::script_switch

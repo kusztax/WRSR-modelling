@@ -74,6 +74,8 @@ bool Init(const TsmHost* host, HMODULE exe)
     return true;
 }
 
+void* World() { return g_world; }
+
 bool PriorityOffByScript()
 {
     if (!g_world) return false;

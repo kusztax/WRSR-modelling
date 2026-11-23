@@ -28,6 +28,7 @@ struct Config
     bool census     = false;
     bool priority   = false;
     int  maxHoldSec = 60;
+    bool aspect     = false;   // v1.1 experiment: held freight's signal shows red
     int  logLimit   = 3000;
 };
 

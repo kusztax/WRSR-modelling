@@ -175,6 +175,8 @@ struct Train
     ULONGLONG wentAt;
     ULONGLONG holdStart;    // we are holding it since (0 = not)
     int       holdFor;      // id of the passenger train it yields to
+    BYTE*     redSig;       // signal we turned red for this hold (signal_aspect)
+    bool      redA, redB;   // which of its two block flags we cleared
 };
 
 constexpr int kSlots = 8192;   // power of two
@@ -265,12 +267,81 @@ const char* Kind(const Train& t) { return t.pax ? "PAX" : "FRT"; }
 using SignalFn = char (*)(void*);
 SignalFn g_origSignal = nullptr;
 
+// ---------------------------------------------------------------- aspect
+// The game keeps two "block free" flags on a signal (+0x1A8 / +0x1A9, 1 =
+// free) and works them out again with FUN_14041ec00(world, signal, 1, 1)
+// whenever a train passes (Rail Operations' finding). While a freight train
+// is held, the block in front of it is really free, so its signal shows
+// green. signal_aspect = 1 clears the flag that says "free" for the held
+// train's signal, and has the game work the flags out afresh on release.
+// Experimental (v1.1): whether the drawn aspect follows these flags is what
+// the in-game test decides.
+const char kSigBlockState[] =
+    "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 30 4C 8B 72 08 33 F6";
+using BlockStateFn = void (*)(void* world, BYTE* signal, char a, char b);
+BlockStateFn g_blockState = nullptr;
+
+void TurnRed(Train& t, const Ahead& a)
+{
+    if (!g_cfg.aspect || !a.sig || t.redSig) return;
+    unsigned char fa = 0, fb = 0;
+    Read(a.sig, S_FREE_A, fa);
+    Read(a.sig, S_FREE_B, fb);
+    t.redSig = a.sig;
+    t.redA   = fa == 1;
+    t.redB   = fb == 1;
+    if (t.redA) *(a.sig + S_FREE_A) = 0;
+    if (t.redB) *(a.sig + S_FREE_B) = 0;
+    if (TakeLine())
+        Log("aspect RED   signal %p flags %u/%u -> %u/%u (train #%d held)", (void*)a.sig, fa, fb,
+            t.redA ? 0 : fa, t.redB ? 0 : fb, t.id);
+}
+
+// The game may work the flags out again while we hold (a train passing the
+// shared block does that): clear them again.
+void KeepRed(Train& t)
+{
+    if (!t.redSig || !Readable(t.redSig + S_FREE_A, 2)) return;
+    if (t.redA && *(t.redSig + S_FREE_A) != 0) *(t.redSig + S_FREE_A) = 0;
+    if (t.redB && *(t.redSig + S_FREE_B) != 0) *(t.redSig + S_FREE_B) = 0;
+}
+
+void ReleaseRed(Train& t, const char* why)
+{
+    if (!t.redSig) return;
+    BYTE* sig = t.redSig;
+    void* world = script_switch::World();
+    if (g_blockState && world && Readable(sig, S_FREE_B + 1))
+        g_blockState(world, sig, 1, 1);           // the game's own answer
+    else if (Readable(sig, S_FREE_B + 1))
+    {
+        if (t.redA) *(sig + S_FREE_A) = 1;         // fallback: put back what we took
+        if (t.redB) *(sig + S_FREE_B) = 1;
+    }
+    unsigned char fa = 0, fb = 0;
+    Read(sig, S_FREE_A, fa);
+    Read(sig, S_FREE_B, fb);
+    if (TakeLine())
+        Log("aspect FREE  signal %p flags now %u/%u (%s, %s)", (void*)sig, fa, fb, why,
+            g_blockState && world ? "worked out by the game" : "restored");
+    t.redSig = nullptr;
+    t.redA = t.redB = false;
+}
+
 char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
 {
-    if (!g_cfg.priority || !gameAnswer || t.pax) return gameAnswer;
+    if (!g_cfg.priority || t.pax) return gameAnswer;
+    // With the signal turned red by us, the game itself says WAIT: the hold
+    // must still be looked at every frame, or it would never end.
+    bool ownRed = t.redSig != nullptr;
+    if (!gameAnswer && !ownRed) return gameAnswer;
     // Cheap exits before scanning the table: only a waiting (or held)
     // freight train in front of a known block can be held.
-    if ((!t.waiting && !t.holdStart) || !t.blockKey) return gameAnswer;
+    if ((!t.waiting && !t.holdStart) || !t.blockKey)
+    {
+        ReleaseRed(t, "no longer held");
+        return gameAnswer;
+    }
 
     // Switched off in the Scripts menu (per save): let a held train go.
     if (script_switch::PriorityOffByScript())
@@ -278,6 +349,7 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
         if (t.holdStart && TakeLine())
             Log("prio  GO     train #%d FRT released: priority switched off in the Scripts menu", t.id);
         t.holdStart = 0;
+        if (ownRed) { ReleaseRed(t, "switched off"); return 0; }   // real answer next frame
         return gameAnswer;
     }
 
@@ -310,6 +382,8 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
                 Log("prio  HOLD   train #%d FRT at signal %p (block %llx) - passenger train #%d goes first",
                     t.id, (void*)a.sig, (unsigned long long)t.blockKey, who);
         }
+        if (ownRed) KeepRed(t);
+        else TurnRed(t, a);
         return 0;
 
     case priority::Verdict::Timeout:
@@ -317,6 +391,7 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
             Log("prio  TIMEOUT train #%d FRT released: passenger train #%d made no progress for %.0f s",
                 t.id, who, (double)(now - t.holdStart) / 1000.0);
         t.holdStart = 0;
+        if (ownRed) { ReleaseRed(t, "timeout"); return 0; }   // real answer next frame
         return gameAnswer;
 
     case priority::Verdict::Go:
@@ -324,9 +399,24 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
             Log("prio  GO     train #%d FRT after being held %.1f s for passenger train #%d", t.id,
                 (double)(now - t.holdStart) / 1000.0, t.holdFor);
         t.holdStart = 0;
+        if (ownRed) { ReleaseRed(t, "passenger train gone"); return 0; }   // real answer next frame
         return gameAnswer;
     }
     return gameAnswer;
+}
+
+// A held train that is sold, or stops asking, must not leave its signal red.
+void SweepRed(ULONGLONG now)
+{
+    static ULONGLONG last = 0;
+    if (now - last < 2000) return;
+    last = now;
+    for (Train& t : g_train)
+        if (t.veh && t.redSig && now - t.lastSeen > 3000)
+        {
+            t.holdStart = 0;
+            ReleaseRed(t, "train no longer asks");
+        }
 }
 
 void Observe(BYTE* lead, char& answer)
@@ -351,6 +441,7 @@ void Observe(BYTE* lead, char& answer)
             t->blockSegs = b.segs;
         }
 
+        SweepRed(now);
         bool wasWaiting = t->waiting;
         answer = Decide(*t, answer, a, now);
         bool waiting = answer == 0;
@@ -457,6 +548,12 @@ bool Start(const TsmHost* host, HMODULE exe, const Config& cfg)
     }
 
     if (cfg.priority) script_switch::Init(host, exe);
+    if (cfg.priority && cfg.aspect)
+    {
+        aob::Hit bs = aob::ScanModule(exe, ".text", kSigBlockState, "signal block-state fn");
+        if (bs.result == aob::Result::Unique) g_blockState = (BlockStateFn)bs.addr;
+        else Log("aspect block-state function not found - flags are put back by hand on release");
+    }
 
     g_exe = exe;
     // Another plugin got there first: chain in front of it now.
