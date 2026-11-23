@@ -71,7 +71,7 @@ bool IsOurPng(const char* p)
 void Probe(const char* p)
 {
     if (g_probeLines <= 0) return;
-    if (!strstr(p, "research") && !strstr(p, "Research")) return;
+    if (!strstr(p, "rail_priority") && !EndsWithI(p, "research.ini")) return;
     --g_probeLines;
     Log("research open \"%s\"", p);
 }
