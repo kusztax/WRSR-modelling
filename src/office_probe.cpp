@@ -31,7 +31,8 @@ const BYTE* Find(int* stride, bool* isDouble)
     MEMORY_BASIC_INFORMATION mi;
     for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
-        if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || mi.Protect != PAGE_READWRITE) continue;
+        if (mi.State != MEM_COMMIT || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
+        if (!(mi.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) continue;
         BYTE* base = (BYTE*)mi.BaseAddress;
         for (SIZE_T off = 0; off < mi.RegionSize; off += kChunk)
         {
@@ -190,19 +191,18 @@ DWORD WINAPI Thread(void*)
                     Log("office probe   %c%03X %s", row < 0x20 ? '-' : '+', row < 0x20 ? 0x20 - row : row - 0x20, line);
                 }
         }
-        // Variables in declaration order: A B count x0 z0 w0 ... x3 z3 w3 C
-        double v[16];
-        bool ok = true;
-        for (int k = 0; k < 16 && ok; ++k)
-        {
-            if (dbl) ok = ReadMem(at + k * stride, &v[k], 8);
-            else { float f; ok = ReadMem(at + k * stride, &f, 4); v[k] = f; }
-        }
-        if (!ok) { at = nullptr; continue; }
+        // Variables in declaration order: A B count loops (x z w)x4 C;
+        // count, loops and w are ints.
+        BYTE raw[17 * 8];
+        if (!ReadMem(at, raw, 17 * (size_t)stride)) { at = nullptr; continue; }
+        auto F = [&](int k) -> double {
+            if (dbl) { double d; memcpy(&d, raw + k * stride, 8); return d; }
+            float f; memcpy(&f, raw + k * stride, 4); return f; };
+        auto I = [&](int k) -> int { int v; memcpy(&v, raw + k * stride, 4); return v; };
         char now[600];
-        snprintf(now, sizeof(now), "count %.0f | (%.1f, %.1f) w%.0f | (%.1f, %.1f) w%.0f | (%.1f, %.1f) w%.0f | (%.1f, %.1f) w%.0f | end marker %s",
-                 v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14],
-                 v[15] == kC ? "ok" : "MISSING");
+        snprintf(now, sizeof(now), "count %d, loop %d | (%.1f, %.1f) w%d | (%.1f, %.1f) w%d | (%.1f, %.1f) w%d | (%.1f, %.1f) w%d | end marker %s",
+                 I(2), I(3), F(4), F(5), I(6), F(7), F(8), I(9), F(10), F(11), I(12), F(13), F(14), I(15),
+                 F(16) == kC ? "ok" : "MISSING");
         if (strcmp(now, last) != 0)
         {
             strcpy(last, now);

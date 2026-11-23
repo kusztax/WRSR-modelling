@@ -1,39 +1,45 @@
 // TEST ONLY (never uploaded): every 5 s, finds the first 4 finished railway
-// construction offices (stand-in for the future signal box) and keeps their position and
-// worker count in its variables, behind two marker values, for the plugin's
-// office probe (office_probe = 1) to find in memory.
+// construction offices (stand-in for the future signal box) and keeps their
+// position and worker count in its variables, behind marker values, for the
+// plugin's office probe (office_probe = 1) to find in memory.
+// Only constructs seen in the game's own scripts: vec3 copied whole, then .x;
+// ints stay ints.
 
 include("SOVIETInstructions.txt");
 
 defineVariable(float, fMagicA);
 defineVariable(float, fMagicB);
-defineVariable(float, fCount);
+defineVariable(int, nCount);
+defineVariable(int, nLoops);
 defineVariable(float, fX0);
 defineVariable(float, fZ0);
-defineVariable(float, fW0);
+defineVariable(int, nW0);
 defineVariable(float, fX1);
 defineVariable(float, fZ1);
-defineVariable(float, fW1);
+defineVariable(int, nW1);
 defineVariable(float, fX2);
 defineVariable(float, fZ2);
-defineVariable(float, fW2);
+defineVariable(int, nW2);
 defineVariable(float, fX3);
 defineVariable(float, fZ3);
-defineVariable(float, fW3);
+defineVariable(int, nW3);
 defineVariable(float, fMagicC);
+defineVariable(vec3, vPos);
 defineVariable(Building, bui);
 defineVariable(int, nNum);
+defineVariable(int, nW);
 defineVariable(int, i);
 defineVariable(int, n);
 defineVariable(char, bRun);
 
 defineFunction(main, void)
 {
-	// Computed, not written as literals: literals sit in the script's constant
-	// table, where the first probe found them instead of the variables.
-	fMagicA = 731.25 * 3.0;
+	// Computed, not literals: literals sit in the script's constant table.
+	fMagicA = 731.25;
+	fMagicA = fMagicA * 3.0;
 	fMagicB = fMagicA + 1957.5;
 	fMagicC = fMagicB + 100.0;
+	nLoops = 0;
 	bRun = 1;
 	while (bRun)
 	{
@@ -44,14 +50,17 @@ defineFunction(main, void)
 			bui.GetDataByIndex(i);
 			if (bui.nValidRead & bui.nType ? BUILDINGTYPE_CONSTRUCTION_OFFICE_RAIL & bui.fPercFinished > 0.99999)
 			{
-				if (n ? 0) { fX0 = bui.vPosition.x; fZ0 = bui.vPosition.z; fW0 = bui.nWorkersNum; }
-				if (n ? 1) { fX1 = bui.vPosition.x; fZ1 = bui.vPosition.z; fW1 = bui.nWorkersNum; }
-				if (n ? 2) { fX2 = bui.vPosition.x; fZ2 = bui.vPosition.z; fW2 = bui.nWorkersNum; }
-				if (n ? 3) { fX3 = bui.vPosition.x; fZ3 = bui.vPosition.z; fW3 = bui.nWorkersNum; }
+				vPos = bui.vPosition;
+				nW = bui.nWorkersNum;
+				if (n ? 0) { fX0 = vPos.x; fZ0 = vPos.z; nW0 = nW; }
+				if (n ? 1) { fX1 = vPos.x; fZ1 = vPos.z; nW1 = nW; }
+				if (n ? 2) { fX2 = vPos.x; fZ2 = vPos.z; nW2 = nW; }
+				if (n ? 3) { fX3 = vPos.x; fZ3 = vPos.z; nW3 = nW; }
 				n = n + 1;
 			}
 		}
-		fCount = n;
+		nCount = n;
+		nLoops = nLoops + 1;
 		Script_Sleep(5.0);
 	}
 	end();
