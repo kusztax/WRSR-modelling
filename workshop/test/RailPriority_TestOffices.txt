@@ -29,9 +29,11 @@ defineVariable(char, bRun);
 
 defineFunction(main, void)
 {
-	fMagicA = 731.25;
-	fMagicB = 1957.5;
-	fMagicC = 4242.125;
+	// Computed, not written as literals: literals sit in the script's constant
+	// table, where the first probe found them instead of the variables.
+	fMagicA = 731.25 * 3.0;
+	fMagicB = fMagicA + 1957.5;
+	fMagicC = fMagicB + 100.0;
 	bRun = 1;
 	while (bRun)
 	{

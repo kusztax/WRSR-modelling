@@ -9,8 +9,10 @@
 namespace wrsr::office_probe {
 namespace {
 
-const float  kA = 731.25f, kB = 1957.5f, kC = 4242.125f;
-const double kAd = 731.25, kBd = 1957.5;
+// Computed by the script at run time (731.25 * 3, + 1957.5, + 100), so they
+// are only in its variables, not in its constant table.
+const float  kA = 2193.75f, kB = 4151.25f, kC = 4251.25f;
+const double kAd = 2193.75, kBd = 4151.25;
 
 bool ReadMem(const void* at, void* out, size_t n)
 {
