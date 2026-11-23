@@ -37,12 +37,12 @@ const BYTE* Find(int* stride, bool* isDouble)
             SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
             SIZE_T got = 0;
             if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (SIZE_T i = 0; i + 72 <= got; i += 4)
+            for (SIZE_T i = 0; i + 520 <= got; i += 4)
             {
                 float f;
                 memcpy(&f, chunk + i, 4);
                 if (f == kA)
-                    for (int d = 4; d <= 64; d += 4)
+                    for (int d = 4; d <= 512; d += 4)
                     {
                         float g;
                         memcpy(&g, chunk + i + d, 4);
@@ -53,7 +53,7 @@ const BYTE* Find(int* stride, bool* isDouble)
                     double x;
                     memcpy(&x, chunk + i, 8);
                     if (x == kAd)
-                        for (int d = 8; d <= 64; d += 8)
+                        for (int d = 8; d <= 512; d += 8)
                         {
                             double y;
                             memcpy(&y, chunk + i + d, 8);
@@ -86,7 +86,12 @@ DWORD WINAPI Thread(void*)
         if (!at)
         {
             at = Find(&stride, &dbl);
-            if (!at) continue;
+            if (!at)
+            {
+                static int misses = 0;
+                if (++misses % 6 == 1) Log("office probe: no markers yet (is the TEST offices script running?)");
+                continue;
+            }
             Log("office probe: markers at %p, %s, %d bytes per variable", (const void*)at, dbl ? "double" : "float", stride);
             BYTE raw[0x140];
             if (ReadMem(at - 0x20, raw, sizeof(raw)))
