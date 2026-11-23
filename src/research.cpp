@@ -176,7 +176,7 @@ void DumpAround(const BYTE* at, const char* ident)
         char line[32 * 3 + 16];
         int n = 0;
         for (int i = 0; i < 32; ++i) n += snprintf(line + n, sizeof(line) - n, "%02X ", buf[row + i]);
-        Log("probe   %+05X %s", row - 0x40, line);
+        Log("probe   %c%03X %s", row < 0x40 ? '-' : '+', row < 0x40 ? 0x40 - row : row - 0x40, line);
     }
 }
 
