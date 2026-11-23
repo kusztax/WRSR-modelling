@@ -1,0 +1,56 @@
+// TEST ONLY (never uploaded): every 5 s, finds the first 4 finished technical
+// offices (stand-in for the future signal box) and keeps their position and
+// worker count in its variables, behind two marker values, for the plugin's
+// office probe (office_probe = 1) to find in memory.
+
+include("SOVIETInstructions.txt");
+
+defineVariable(float, fMagicA);
+defineVariable(float, fMagicB);
+defineVariable(float, fCount);
+defineVariable(float, fX0);
+defineVariable(float, fZ0);
+defineVariable(float, fW0);
+defineVariable(float, fX1);
+defineVariable(float, fZ1);
+defineVariable(float, fW1);
+defineVariable(float, fX2);
+defineVariable(float, fZ2);
+defineVariable(float, fW2);
+defineVariable(float, fX3);
+defineVariable(float, fZ3);
+defineVariable(float, fW3);
+defineVariable(float, fMagicC);
+defineVariable(Building, bui);
+defineVariable(int, nNum);
+defineVariable(int, i);
+defineVariable(int, n);
+defineVariable(char, bRun);
+
+defineFunction(main, void)
+{
+	fMagicA = 731.25;
+	fMagicB = 1957.5;
+	fMagicC = 4242.125;
+	bRun = 1;
+	while (bRun)
+	{
+		n = 0;
+		Building_GetNumberOfBuildings(nNum);
+		for (i=0, i<nNum, i=i+1)
+		{
+			bui.GetDataByIndex(i);
+			if (bui.nValidRead & bui.nType ? BUILDINGTYPE_TECHNICAL_OFFICE & bui.fPercFinished > 0.99999)
+			{
+				if (n ? 0) { fX0 = bui.vPosition.x; fZ0 = bui.vPosition.z; fW0 = bui.nWorkersNum; }
+				if (n ? 1) { fX1 = bui.vPosition.x; fZ1 = bui.vPosition.z; fW1 = bui.nWorkersNum; }
+				if (n ? 2) { fX2 = bui.vPosition.x; fZ2 = bui.vPosition.z; fW2 = bui.nWorkersNum; }
+				if (n ? 3) { fX3 = bui.vPosition.x; fZ3 = bui.vPosition.z; fW3 = bui.nWorkersNum; }
+				n = n + 1;
+			}
+		}
+		fCount = n;
+		Script_Sleep(5.0);
+	}
+	end();
+}

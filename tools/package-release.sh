@@ -45,6 +45,7 @@ fi
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"'
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_Hold "Rail priority: freight maximum wait (30/60/90/120/180 s)"'
     [ "$TEST" = 1 ] && printf '%s\n' '$OBJECT_SCRIPT RailPriority_TestResearch "TEST ONLY: mark Rail priority researched"'
+    [ "$TEST" = 1 ] && printf '%s\n' '$OBJECT_SCRIPT RailPriority_TestOffices "TEST ONLY: report technical offices to the plugin"'
     printf '\n'
     printf '%s\n\n' '$ITEM_NAME "Rail Priority"'
     printf '$ITEM_DESC "'

@@ -25,6 +25,7 @@
 #include "rail_probe.h"
 #include "signal_priority.h"
 #include "research.h"
+#include "office_probe.h"
 
 using wrsr::Log;
 
@@ -134,6 +135,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     if (sc.priority)
     {
         wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0);
+        if (H->configInt(kIni, kSection, "office_probe", 0)) wrsr::office_probe::Start();
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
 
