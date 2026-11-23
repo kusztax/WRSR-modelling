@@ -193,64 +193,71 @@ void Hex(const BYTE* b, int n, char* out, size_t cap)
     for (int i = 0; i < n && k + 4 < cap; ++i) k += snprintf(out + k, cap - k, "%02X ", b[i]);
 }
 
+// A research object: valid identifier at +0, and its two text ids next to
+// each other at +0x58 / +0x5C (name, description = name + 1).
+bool LooksLikeResearch(const BYTE* chunk, SIZE_T got, SIZE_T i)
+{
+    if (i + kObj > got) return false;
+    const BYTE* o = chunk + i;
+    if (o[0] < 'a' || o[0] > 'z') return false;
+    int n = 0;
+    while (n < 64 && o[n])
+    {
+        BYTE c = o[n];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
+        ++n;
+    }
+    if (n < 3 || n >= 64) return false;
+    for (int k = n; k < 64; ++k) if (o[k]) return false;
+    int name, desc;
+    memcpy(&name, o + 0x58, 4);
+    memcpy(&desc, o + 0x5C, 4);
+    return name >= 1000 && name < 3000000 && desc == name + 1;
+}
+
 DWORD WINAPI ProbeThread(void*)
 {
     Sleep(5000);
-    Log("probe research objects: looking for chemistry_init (name id 11104)");
+    Log("probe research objects: scanning for identifier + name/desc ids");
     const SIZE_T kChunk = 1 << 20;
-    BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + 64, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + kObj, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!chunk) return 0;
-    const BYTE* found = nullptr;
+    int n = 0, full = 0;
     MEMORY_BASIC_INFORMATION mi;
-    for (BYTE* p = nullptr; !found && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
+    for (BYTE* p = nullptr; n < 600 && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
          p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
         if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || mi.Protect != PAGE_READWRITE) continue;
         BYTE* base = (BYTE*)mi.BaseAddress;
-        for (SIZE_T off = 0; !found && off < mi.RegionSize; off += kChunk)
+        for (SIZE_T off = 0; n < 600 && off < mi.RegionSize; off += kChunk)
         {
             SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
             SIZE_T got = 0;
             if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (SIZE_T i = 0; i + 15 <= got; ++i)
+            for (SIZE_T i = 0; i + kObj <= got && n < 600; i += 8)   // objects are 8-aligned
             {
-                if (chunk[i] != 'c' || memcmp(chunk + i, "chemistry_init", 15) != 0) continue;
-                const BYTE* o = base + off + i;
-                char id[64];
-                int name = 0;
-                if (ValidIdent(o, id) && ReadMem(o + 0x58, &name, 4) && name == 11104) { found = o; break; }
+                if (!LooksLikeResearch(chunk, got, i)) continue;
+                const BYTE* b = chunk + i;
+                char h1[200], h2[200];
+                Hex(b + 0x40, 0x20, h1, sizeof(h1));
+                Hex(b + 0xB8, 0x30, h2, sizeof(h2));
+                Log("probe #%03d %p %-30s +40: %s| +B8: %s", n, (const void*)(base + off + i), (const char*)b, h1, h2);
+                ++n;
+                bool target = false;
+                for (const char* t : kProbeIdents) if (strcmp(t, (const char*)b) == 0) target = true;
+                if (!target || full >= 12) continue;
+                ++full;
+                Log("probe full %s:", (const char*)b);
+                for (int row = 0; row < (int)kObj; row += 32)
+                {
+                    char line[200];
+                    Hex(b + row, row + 32 <= (int)kObj ? 32 : (int)kObj - row, line, sizeof(line));
+                    Log("probe   +%03X %s", row, line);
+                }
             }
         }
     }
     VirtualFree(chunk, 0, MEM_RELEASE);
-    if (!found) { Log("probe chemistry_init object not found"); return 0; }
-
-    char id[64];
-    const BYTE* first = found;
-    for (int i = 0; i < 1000 && ValidIdent(first - kObj, id); ++i) first -= kObj;
-    Log("probe research array: first object at %p (chemistry_init at %p), stride 0x%X", (const void*)first,
-        (const void*)found, (unsigned)kObj);
-
-    int n = 0;
-    for (const BYTE* o = first; n < 1000 && ValidIdent(o, id); o += kObj, ++n)
-    {
-        BYTE b[kObj];
-        if (!ReadMem(o, b, kObj)) break;
-        char h1[200], h2[200];
-        Hex(b + 0x40, 0x20, h1, sizeof(h1));          // +40..+5F
-        Hex(b + 0xB8, 0x30, h2, sizeof(h2));          // +B8..+E7
-        Log("probe #%03d %-32s +40: %s| +B8: %s", n, id, h1, h2);
-        bool target = false;
-        for (const char* t : kProbeIdents) if (strcmp(t, id) == 0) target = true;
-        if (!target) continue;
-        Log("probe full %s at %p:", id, (const void*)o);
-        for (int row = 0; row < (int)kObj; row += 32)
-        {
-            char line[200];
-            Hex(b + row, row + 32 <= (int)kObj ? 32 : (int)kObj - row, line, sizeof(line));
-            Log("probe   +%03X %s", row, line);
-        }
-    }
     Log("probe done: %d research objects", n);
     return 0;
 }
