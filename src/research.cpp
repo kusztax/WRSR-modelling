@@ -165,78 +165,93 @@ bool BuildCopy(const char* src)
 const char* const kProbeIdents[] = {"phone_tapping", "chemistry_init", "logistic_optimization",
                                     "distribution_office", "rail_priority"};
 
-void DumpAround(const BYTE* at, const char* ident)
+constexpr size_t kObj = 0xE8;   // one research object (1.1.1.13): char ident[64], ..., +0x58 name id
+
+bool ReadMem(const BYTE* at, void* out, size_t n)
 {
-    BYTE buf[0x40 + 0x140];
     SIZE_T got = 0;
-    if (!ReadProcessMemory(GetCurrentProcess(), at - 0x40, buf, sizeof(buf), &got) || got != sizeof(buf)) return;
-    Log("probe %s at %p:", ident, (const void*)at);
-    for (int row = 0; row < (int)sizeof(buf); row += 32)
-    {
-        char line[32 * 3 + 16];
-        int n = 0;
-        for (int i = 0; i < 32; ++i) n += snprintf(line + n, sizeof(line) - n, "%02X ", buf[row + i]);
-        Log("probe   %c%03X %s", row < 0x40 ? '-' : '+', row < 0x40 ? 0x40 - row : row - 0x40, line);
-    }
+    return ReadProcessMemory(GetCurrentProcess(), at, out, n, &got) && got == n;
+}
+
+// A research identifier: [a-z0-9_]+, zero-padded to 64 bytes.
+bool ValidIdent(const BYTE* o, char* out)
+{
+    BYTE b[64];
+    if (!ReadMem(o, b, 64)) return false;
+    if (b[0] < 'a' || b[0] > 'z') return false;
+    int n = 0;
+    while (n < 64 && b[n]) { if (!((b[n] >= 'a' && b[n] <= 'z') || (b[n] >= '0' && b[n] <= '9') || b[n] == '_')) return false; ++n; }
+    if (n >= 64) return false;
+    for (int i = n; i < 64; ++i) if (b[i]) return false;
+    memcpy(out, b, n + 1);
+    return true;
+}
+
+void Hex(const BYTE* b, int n, char* out, size_t cap)
+{
+    size_t k = 0;
+    for (int i = 0; i < n && k + 4 < cap; ++i) k += snprintf(out + k, cap - k, "%02X ", b[i]);
 }
 
 DWORD WINAPI ProbeThread(void*)
 {
     Sleep(5000);
-    Log("probe research objects: scanning memory");
+    Log("probe research objects: looking for chemistry_init (name id 11104)");
     const SIZE_T kChunk = 1 << 20;
     BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + 64, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!chunk) return 0;
-    int hits[5] = {0, 0, 0, 0, 0}, whits[5] = {0, 0, 0, 0, 0};
-    BYTE wide[5][128];
-    size_t wlen[5];
-    for (int k = 0; k < 5; ++k)
-    {
-        size_t n = strlen(kProbeIdents[k]);
-        for (size_t i = 0; i < n; ++i) { wide[k][2 * i] = (BYTE)kProbeIdents[k][i]; wide[k][2 * i + 1] = 0; }
-        wide[k][2 * n] = wide[k][2 * n + 1] = 0;
-        wlen[k] = 2 * n + 2;
-    }
+    const BYTE* found = nullptr;
     MEMORY_BASIC_INFORMATION mi;
-    for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+    for (BYTE* p = nullptr; !found && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
+         p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
         if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || mi.Protect != PAGE_READWRITE) continue;
         BYTE* base = (BYTE*)mi.BaseAddress;
-        for (SIZE_T off = 0; off < mi.RegionSize; off += kChunk)
+        for (SIZE_T off = 0; !found && off < mi.RegionSize; off += kChunk)
         {
             SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
             SIZE_T got = 0;
             if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (int k = 0; k < 5; ++k)
+            for (SIZE_T i = 0; i + 15 <= got; ++i)
             {
-                const char* id = kProbeIdents[k];
-                size_t len = strlen(id) + 1;   // with its 0
-                for (SIZE_T i = 2; i + wlen[k] <= got; ++i)
-                {
-                    if (chunk[i] != (BYTE)id[0]) continue;
-                    if (hits[k] < 6 && memcmp(chunk + i, id, len) == 0 && chunk[i - 1] == 0)
-                    {
-                        char label[96];
-                        snprintf(label, sizeof(label), "%s (ascii)", id);
-                        DumpAround(base + off + i, label);
-                        ++hits[k];
-                    }
-                    else if (whits[k] < 6 && (i & 1) == 0 && memcmp(chunk + i, wide[k], wlen[k]) == 0 &&
-                             !(chunk[i - 2] != 0 && chunk[i - 1] == 0))
-                    {
-                        char label[96];
-                        snprintf(label, sizeof(label), "%s (wide)", id);
-                        DumpAround(base + off + i, label);
-                        ++whits[k];
-                    }
-                }
+                if (chunk[i] != 'c' || memcmp(chunk + i, "chemistry_init", 15) != 0) continue;
+                const BYTE* o = base + off + i;
+                char id[64];
+                int name = 0;
+                if (ValidIdent(o, id) && ReadMem(o + 0x58, &name, 4) && name == 11104) { found = o; break; }
             }
         }
     }
     VirtualFree(chunk, 0, MEM_RELEASE);
-    Log("probe done: ascii %d %d %d %d %d, wide %d %d %d %d %d (phone_tapping chemistry_init "
-        "logistic_optimization distribution_office rail_priority)", hits[0], hits[1], hits[2], hits[3],
-        hits[4], whits[0], whits[1], whits[2], whits[3], whits[4]);
+    if (!found) { Log("probe chemistry_init object not found"); return 0; }
+
+    char id[64];
+    const BYTE* first = found;
+    for (int i = 0; i < 1000 && ValidIdent(first - kObj, id); ++i) first -= kObj;
+    Log("probe research array: first object at %p (chemistry_init at %p), stride 0x%X", (const void*)first,
+        (const void*)found, (unsigned)kObj);
+
+    int n = 0;
+    for (const BYTE* o = first; n < 1000 && ValidIdent(o, id); o += kObj, ++n)
+    {
+        BYTE b[kObj];
+        if (!ReadMem(o, b, kObj)) break;
+        char h1[200], h2[200];
+        Hex(b + 0x40, 0x20, h1, sizeof(h1));          // +40..+5F
+        Hex(b + 0xB8, 0x30, h2, sizeof(h2));          // +B8..+E7
+        Log("probe #%03d %-32s +40: %s| +B8: %s", n, id, h1, h2);
+        bool target = false;
+        for (const char* t : kProbeIdents) if (strcmp(t, id) == 0) target = true;
+        if (!target) continue;
+        Log("probe full %s at %p:", id, (const void*)o);
+        for (int row = 0; row < (int)kObj; row += 32)
+        {
+            char line[200];
+            Hex(b + row, row + 32 <= (int)kObj ? 32 : (int)kObj - row, line, sizeof(line));
+            Log("probe   +%03X %s", row, line);
+        }
+    }
+    Log("probe done: %d research objects", n);
     return 0;
 }
 
