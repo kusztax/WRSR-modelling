@@ -133,35 +133,46 @@ bool PathProbe()
         }
         if (!found)
         {
-            // The object starts with four std::vector (begin, end, cap) at
-            // +0x08, +0x20, +0x38, +0x50: dump each (up to 0x400 bytes).
-            for (int v = 0; v < 4; ++v)
+            // Vectors 1..3 (obj+0x20, +0x38, +0x50) hold pointers, one small
+            // object per variable (it seems). Find the element whose object
+            // holds marker A, then dump that element and the next 20.
+            for (int v = 1; v < 4; ++v)
             {
                 BYTE* vb = nullptr; BYTE* ve = nullptr;
                 if (!ReadMem(obj + 0x08 + v * 0x18, &vb, 8) || !ReadMem(obj + 0x10 + v * 0x18, &ve, 8) || !vb || ve <= vb) continue;
-                size_t len = (size_t)(ve - vb);
-                size_t show = len < 0x400 ? len : 0x400;
-                Log("office probe: vector %d at obj+0x%02X: %p, %zu bytes (showing %zu)", v, 0x08 + v * 0x18, (void*)vb, len, show);
-                BYTE buf[0x400];
-                if (!ReadMem(vb, buf, show)) continue;
-                for (size_t row = 0; row < show; row += 32)
+                size_t cnt = (size_t)(ve - vb) / 8;
+                if (cnt > 20000) continue;
+                for (size_t k = 0; k < cnt; ++k)
                 {
-                    char line[120];
-                    int c = 0;
-                    for (size_t j = 0; j < 32 && row + j < show; ++j) c += snprintf(line + c, sizeof(line) - c, "%02X ", buf[row + j]);
-                    Log("office probe   v%d+%03zX %s", v, row, line);
+                    BYTE* el = nullptr;
+                    if (!ReadMem(vb + 8 * k, &el, 8) || !el) continue;
+                    BYTE o[0x40];
+                    if (!ReadMem(el, o, sizeof(o))) continue;
+                    int hitOff = -1;
+                    for (int j = 0; j + 4 <= (int)sizeof(o); j += 4)
+                    {
+                        float f; memcpy(&f, o + j, 4);
+                        if (f == kA) { hitOff = j; break; }
+                        if ((j & 7) == 0 && j + 8 <= (int)sizeof(o)) { double d; memcpy(&d, o + j, 8); if (d == kAd) { hitOff = j; break; } }
+                    }
+                    if (hitOff < 0) continue;
+                    Log("office probe: marker A in vector %d element %zu (of %zu) at +0x%X", v, k, cnt, hitOff);
+                    for (size_t q = k; q < cnt && q < k + 22; ++q)
+                    {
+                        BYTE* e2 = nullptr;
+                        BYTE o2[0x30];
+                        if (!ReadMem(vb + 8 * q, &e2, 8) || !e2 || !ReadMem(e2, o2, sizeof(o2))) continue;
+                        char line[160];
+                        int c = 0;
+                        for (int j = 0; j < (int)sizeof(o2); ++j) c += snprintf(line + c, sizeof(line) - c, "%02X ", o2[j]);
+                        Log("office probe   v%d[%zu] %p: %s", v, q, (void*)e2, line);
+                    }
+                    found = 1;
+                    break;
                 }
+                if (found) break;
             }
-            Log("office probe: marker not behind any pointer of the script object; its first 0x200 bytes:");
-            BYTE raw[0x200];
-            if (ReadMem(obj, raw, sizeof(raw)))
-                for (int row = 0; row < 0x200; row += 32)
-                {
-                    char line[120];
-                    int c = 0;
-                    for (int j = 0; j < 32; ++j) c += snprintf(line + c, sizeof(line) - c, "%02X ", raw[row + j]);
-                    Log("office probe   obj+%03X %s", row, line);
-                }
+            if (!found) Log("office probe: marker A in none of the vectors' elements either");
         }
         return true;
     }
