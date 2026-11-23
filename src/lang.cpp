@@ -314,8 +314,6 @@ using WfopenFn    = FILE* (*)(const wchar_t*, const wchar_t*);
 using FopenSFn    = errno_t (*)(FILE**, const char*, const char*);
 using WfopenSFn   = errno_t (*)(FILE**, const wchar_t*, const wchar_t*);
 using ReadFileFn  = int (*)(const char*, char**, unsigned*, bool);
-using CreateAFn   = HANDLE (WINAPI*)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
-using CreateWFn   = HANDLE (WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 
 GetStringFn o_getString;
 FopenFn     o_fopen[2];
@@ -323,8 +321,6 @@ WfopenFn    o_wfopen[2];
 FopenSFn    o_fopen_s[2];
 WfopenSFn   o_wfopen_s[2];
 ReadFileFn  o_readFile;
-CreateAFn   o_createA[2];
-CreateWFn   o_createW[2];
 
 wchar_t* h_getString(void* self, int id)
 {
@@ -357,17 +353,6 @@ template <int M> FILE* h_wfopen(const wchar_t* p, const wchar_t* m) { NoteFileW(
 template <int M> errno_t h_fopen_s(FILE** f, const char* p, const char* m) { NoteFile(p); return o_fopen_s[M](f, research::MapA(p), m); }
 template <int M> errno_t h_wfopen_s(FILE** f, const wchar_t* p, const wchar_t* m) { NoteFileW(p); return o_wfopen_s[M](f, research::MapW(p), m); }
 int h_readFile(const char* p, char** out, unsigned* size, bool b) { NoteFile(p); return o_readFile(research::MapA(p), out, size, b); }
-// Only reads are redirected (the game also writes saves and logs this way).
-template <int M> HANDLE WINAPI h_createA(LPCSTR p, DWORD a, DWORD sh, LPSECURITY_ATTRIBUTES sa, DWORD c, DWORD f, HANDLE t)
-{
-    if (!(a & GENERIC_WRITE) && c == OPEN_EXISTING) p = research::MapA(p);
-    return o_createA[M](p, a, sh, sa, c, f, t);
-}
-template <int M> HANDLE WINAPI h_createW(LPCWSTR p, DWORD a, DWORD sh, LPSECURITY_ATTRIBUTES sa, DWORD c, DWORD f, HANDLE t)
-{
-    if (!(a & GENERIC_WRITE) && c == OPEN_EXISTING) p = research::MapW(p);
-    return o_createW[M](p, a, sh, sa, c, f, t);
-}
 
 const char kEngine[] = "C3DDLL64.dll";
 const char kStdio[]  = "api-ms-win-crt-stdio-l1-1-0.dll";
@@ -395,18 +380,6 @@ int WatchOpens(const TsmHost* h, HMODULE mod, const char* who)
     n += Patch(h, mod, kStdio, "fopen_s", (void*)&h_fopen_s<M>, (void**)&o_fopen_s[M], label);
     snprintf(label, sizeof(label), "lang _wfopen_s (%s)", who);
     n += Patch(h, mod, kStdio, "_wfopen_s", (void*)&h_wfopen_s<M>, (void**)&o_wfopen_s[M], label);
-    snprintf(label, sizeof(label), "research CreateFileA (%s)", who);
-    {
-        int k = Patch(h, mod, "KERNEL32.dll", "CreateFileA", (void*)&h_createA<M>, (void**)&o_createA[M], label);
-        if (!k) k = Patch(h, mod, "kernel32.dll", "CreateFileA", (void*)&h_createA<M>, (void**)&o_createA[M], label);
-        n += k;
-    }
-    snprintf(label, sizeof(label), "research CreateFileW (%s)", who);
-    {
-        int k = Patch(h, mod, "KERNEL32.dll", "CreateFileW", (void*)&h_createW<M>, (void**)&o_createW[M], label);
-        if (!k) k = Patch(h, mod, "kernel32.dll", "CreateFileW", (void*)&h_createW<M>, (void**)&o_createW[M], label);
-        n += k;
-    }
     return n;
 }
 

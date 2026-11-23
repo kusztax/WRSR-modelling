@@ -122,22 +122,37 @@ bool BuildCopy(const char* src)
         return false;
     }
 
+    // Our block goes INSIDE the file, never at its end: the stock tree ends
+    // with a bare "ferfer" line, and the parser that fills the game's research
+    // state stops there (appended after it, the entry showed in the tree
+    // window but Research_IsCompleted never found it).
     size_t parent = FindEntry(s, kParent);
     bool   linked = false;
     if (parent != std::string::npos)
     {
         // "$UNLOCK_RESEARCH rail_priority" into the parent, before its
-        // "$RESEARCH_ADD" (at a line start; "---$RESEARCH_ADD" is commented out).
+        // "$RESEARCH_ADD" (at a line start; "---$RESEARCH_ADD" is commented
+        // out), and our entry right after that line.
         for (size_t add = s.find("$RESEARCH_ADD", parent); add != std::string::npos;
              add = s.find("$RESEARCH_ADD", add + 1))
         {
             if (add > 0 && s[add - 1] != '\n') continue;
-            s.insert(add, "$UNLOCK_RESEARCH rail_priority\r\n\r\n");
+            const char unlock[] = "$UNLOCK_RESEARCH rail_priority\r\n\r\n";
+            s.insert(add, unlock);
+            size_t eol = s.find('\n', add + sizeof(unlock) - 1);
+            size_t at  = eol == std::string::npos ? s.size() : eol + 1;
+            s.insert(at, kBlockAfter);
             linked = true;
             break;
         }
     }
-    s += linked ? kBlockAfter : kBlockAlone;
+    if (!linked)
+    {
+        // No parent: in front of the first entry, available from the start.
+        size_t at    = s.find("$RESEARCH ");
+        while (at != std::string::npos && at > 0 && s[at - 1] != '\n') at = s.find("$RESEARCH ", at + 1);
+        s.insert(at == std::string::npos ? 0 : at, std::string(kBlockAlone) + "\r\n");
+    }
 
     HANDLE h = CreateFileA(g_tempIni, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,
                            FILE_ATTRIBUTE_NORMAL, nullptr);
