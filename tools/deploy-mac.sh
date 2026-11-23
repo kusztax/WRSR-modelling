@@ -29,10 +29,6 @@ grep '^signal_aspect' "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini" | sed 's/^/
 # the Workshop folder, so this tests the new build with the published buttons.
 # (The old local test project, workshop_wip/9957001, is no longer made: with
 # the subscription it would show every button twice.)
-if [ -n "$PROBE" ]; then
-    printf '\nresearch_probe = %s\n' "$PROBE" >> "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
-    echo "[deploy] research_probe = $PROBE"
-fi
 if [ -n "$ASPECT" ]; then
     sed -i '' "s/^signal_aspect = .*/signal_aspect = $ASPECT/" "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
     echo "[deploy] signal_aspect = $ASPECT"

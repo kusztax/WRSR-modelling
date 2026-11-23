@@ -18,7 +18,9 @@ const char kSigWorld[] =
 constexpr uintptr_t WORLD_SCRIPTS = 0x13BB8;
 constexpr uintptr_t SCRIPT_FILE   = 0xB8;
 constexpr uintptr_t SCRIPT_NAME   = 0xC0;
-const wchar_t kFlag[] = L"RailPriority_OffFlag";
+// Priority is ON only while this runs (v1.2: started by the ON button once
+// the research is done). RailPriority_OffFlag.txt from 1.0/1.1 no longer matters.
+const wchar_t kFlag[] = L"RailPriority_OnFlag";
 const int     kHoldValues[] = {30, 60, 90, 120, 180};
 
 const TsmHost* g_host  = nullptr;
@@ -71,7 +73,7 @@ void Scan()
 
     BYTE** b = nullptr;
     BYTE** e = nullptr;
-    bool   off  = false;
+    bool   on   = false;
     int    hold = 0;
     if (Read(g_world, WORLD_SCRIPTS, b) && Read(g_world, WORLD_SCRIPTS + 8, e) && b && e > b && e - b <= 4096 &&
         Readable(b, (size_t)(e - b) * sizeof(BYTE*)))
@@ -81,7 +83,7 @@ void Scan()
             if (!*p) continue;
             wchar_t text[480];
             ScriptText(*p, text, sizeof(text) / sizeof(text[0]));
-            if (wcsstr(text, kFlag)) off = true;
+            if (wcsstr(text, kFlag)) on = true;
             for (int v : kHoldValues)
             {
                 wchar_t name[48];
@@ -91,6 +93,7 @@ void Scan()
             }
         }
     }
+    bool off = !on;
     g_off  = off;
     g_hold = hold;
     if ((int)off != g_logged)

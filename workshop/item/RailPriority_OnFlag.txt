@@ -1,0 +1,18 @@
+// Rail Priority - flag: while this script runs, passenger-train priority at
+// signals is ON in this save (since 1.2). It does nothing else; the plugin
+// looks for it. Started by the ON button, or by RailPriority_Watch.txt when
+// the Rail priority research is done.
+
+include("SOVIETInstructions.txt");
+
+defineVariable(char, bRun);
+
+defineFunction(main, void)
+{
+	bRun = 1;
+	while (bRun)
+	{
+		Script_Sleep(60.0);
+	}
+	end();
+}

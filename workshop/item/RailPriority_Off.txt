@@ -1,16 +1,19 @@
 // Rail Priority - button: the game decides the order at signals (OFF).
-// Starts the OFF flag script, unless it runs already, and says so in the
+// Stops the ON flag and the research watcher, if they run, and says so in the
 // player's language (text ids 1957001 / 1957003 are served by wrsr_rail_mod.dll).
 
 include("SOVIETInstructions.txt");
 
-defineVariable(char, bOff);
+defineVariable(char, bOn);
+defineVariable(char, bWatch);
 defineVariable(vec3, vWhere);
 
 defineFunction(main, void)
 {
-	Script_Exists("RailPriority_OffFlag.txt", bOff);
-	if (!bOff) { Script_StartNew("RailPriority_OffFlag.txt"); }
+	Script_Exists("RailPriority_OnFlag.txt", bOn);
+	if (bOn) { Script_DestroyByName("RailPriority_OnFlag.txt"); }
+	Script_Exists("RailPriority_Watch.txt", bWatch);
+	if (bWatch) { Script_DestroyByName("RailPriority_Watch.txt"); }
 	Notification_CreateNewLangIDPic(1957001, 1957003, "RailPriority_Off.png", vWhere);
 	end();
 }

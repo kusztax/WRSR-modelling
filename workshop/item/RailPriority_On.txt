@@ -1,16 +1,36 @@
 // Rail Priority - button: passenger trains go first at signals (ON).
-// Stops the OFF flag script, if it runs, and says so in the player's language
-// (text ids 1957001 / 1957002 are served by wrsr_rail_mod.dll).
+// Needs the Rail priority research (party university, after Logistic
+// optimization). Done: starts the ON flag. Not yet: says so, and starts
+// RailPriority_Watch.txt, which switches it on when the research is done.
+// Texts 1957001 / 1957002 / 1957005 are served by wrsr_rail_mod.dll.
 
 include("SOVIETInstructions.txt");
 
-defineVariable(char, bOff);
+defineVariable(int, iDone);
+defineVariable(char, bOld);
+defineVariable(char, bOn);
+defineVariable(char, bWatch);
 defineVariable(vec3, vWhere);
 
 defineFunction(main, void)
 {
-	Script_Exists("RailPriority_OffFlag.txt", bOff);
-	if (bOff) { Script_DestroyByName("RailPriority_OffFlag.txt"); }
-	Notification_CreateNewLangIDPic(1957001, 1957002, "RailPriority_On.png", vWhere);
+	// The OFF flag of versions 1.0 / 1.1 no longer means anything.
+	Script_Exists("RailPriority_OffFlag.txt", bOld);
+	if (bOld) { Script_DestroyByName("RailPriority_OffFlag.txt"); }
+
+	Research_IsCompleted("rail_priority", iDone);
+	Script_Exists("RailPriority_OnFlag.txt", bOn);
+	Script_Exists("RailPriority_Watch.txt", bWatch);
+	if (iDone)
+	{
+		if (bWatch) { Script_DestroyByName("RailPriority_Watch.txt"); }
+		if (!bOn) { Script_StartNew("RailPriority_OnFlag.txt"); }
+		Notification_CreateNewLangIDPic(1957001, 1957002, "RailPriority_On.png", vWhere);
+	}
+	if (!iDone)
+	{
+		if (!bWatch) { Script_StartNew("RailPriority_Watch.txt"); }
+		Notification_CreateNewLangIDPic(1957001, 1957005, "RailPriority_Off.png", vWhere);
+	}
 	end();
 }

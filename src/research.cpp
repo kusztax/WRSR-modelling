@@ -12,8 +12,6 @@ namespace wrsr::research {
 namespace {
 
 bool    g_enabled = false;
-bool    g_probe   = false;
-volatile LONG g_probeStarted = 0;
 char    g_pluginDir[MAX_PATH * 2] = "";
 char    g_tempIni[MAX_PATH * 2]   = "";
 wchar_t g_tempIniW[MAX_PATH * 2]  = L"";
@@ -157,111 +155,6 @@ bool BuildCopy(const char* src)
     return true;
 }
 
-// ---- memory probe (v1.2 research state): where do the research objects
-// live, and which byte says "completed"? Runs once, 5 s after the game opened
-// research.ini, on its own thread; reads through ReadProcessMemory, so a page
-// freed meanwhile is skipped instead of crashing the game.
-
-const char* const kProbeIdents[] = {"phone_tapping", "chemistry_init", "logistic_optimization",
-                                    "distribution_office", "rail_priority"};
-
-constexpr size_t kObj = 0xE8;   // one research object (1.1.1.13): char ident[64], ..., +0x58 name id
-
-bool ReadMem(const BYTE* at, void* out, size_t n)
-{
-    SIZE_T got = 0;
-    return ReadProcessMemory(GetCurrentProcess(), at, out, n, &got) && got == n;
-}
-
-// A research identifier: [a-z0-9_]+, zero-padded to 64 bytes.
-bool ValidIdent(const BYTE* o, char* out)
-{
-    BYTE b[64];
-    if (!ReadMem(o, b, 64)) return false;
-    if (b[0] < 'a' || b[0] > 'z') return false;
-    int n = 0;
-    while (n < 64 && b[n]) { if (!((b[n] >= 'a' && b[n] <= 'z') || (b[n] >= '0' && b[n] <= '9') || b[n] == '_')) return false; ++n; }
-    if (n >= 64) return false;
-    for (int i = n; i < 64; ++i) if (b[i]) return false;
-    memcpy(out, b, n + 1);
-    return true;
-}
-
-void Hex(const BYTE* b, int n, char* out, size_t cap)
-{
-    size_t k = 0;
-    for (int i = 0; i < n && k + 4 < cap; ++i) k += snprintf(out + k, cap - k, "%02X ", b[i]);
-}
-
-// A research object: valid identifier at +0, and its two text ids next to
-// each other at +0x58 / +0x5C (name, description = name + 1).
-bool LooksLikeResearch(const BYTE* chunk, SIZE_T got, SIZE_T i)
-{
-    if (i + kObj > got) return false;
-    const BYTE* o = chunk + i;
-    if (o[0] < 'a' || o[0] > 'z') return false;
-    int n = 0;
-    while (n < 64 && o[n])
-    {
-        BYTE c = o[n];
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
-        ++n;
-    }
-    if (n < 3 || n >= 64) return false;
-    for (int k = n; k < 64; ++k) if (o[k]) return false;
-    int name, desc;
-    memcpy(&name, o + 0x58, 4);
-    memcpy(&desc, o + 0x5C, 4);
-    return name >= 1000 && name < 3000000 && desc == name + 1;
-}
-
-DWORD WINAPI ProbeThread(void*)
-{
-    Sleep(5000);
-    Log("probe research objects: scanning for identifier + name/desc ids");
-    const SIZE_T kChunk = 1 << 20;
-    BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + kObj, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!chunk) return 0;
-    int n = 0, full = 0;
-    MEMORY_BASIC_INFORMATION mi;
-    for (BYTE* p = nullptr; n < 600 && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
-         p = (BYTE*)mi.BaseAddress + mi.RegionSize)
-    {
-        if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || mi.Protect != PAGE_READWRITE) continue;
-        BYTE* base = (BYTE*)mi.BaseAddress;
-        for (SIZE_T off = 0; n < 600 && off < mi.RegionSize; off += kChunk)
-        {
-            SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
-            SIZE_T got = 0;
-            if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (SIZE_T i = 0; i + kObj <= got && n < 600; i += 8)   // objects are 8-aligned
-            {
-                if (!LooksLikeResearch(chunk, got, i)) continue;
-                const BYTE* b = chunk + i;
-                char h1[200], h2[200];
-                Hex(b + 0x40, 0x20, h1, sizeof(h1));
-                Hex(b + 0xB8, 0x30, h2, sizeof(h2));
-                Log("probe #%03d %p %-30s +40: %s| +B8: %s", n, (const void*)(base + off + i), (const char*)b, h1, h2);
-                ++n;
-                bool target = false;
-                for (const char* t : kProbeIdents) if (strcmp(t, (const char*)b) == 0) target = true;
-                if (!target || full >= 12) continue;
-                ++full;
-                Log("probe full %s:", (const char*)b);
-                for (int row = 0; row < (int)kObj; row += 32)
-                {
-                    char line[200];
-                    Hex(b + row, row + 32 <= (int)kObj ? 32 : (int)kObj - row, line, sizeof(line));
-                    Log("probe   +%03X %s", row, line);
-                }
-            }
-        }
-    }
-    VirtualFree(chunk, 0, MEM_RELEASE);
-    Log("probe done: %d research objects", n);
-    return 0;
-}
-
 const char* Map(const char* p, bool* changed)
 {
     *changed = false;
@@ -272,11 +165,6 @@ const char* Map(const char* p, bool* changed)
         AcquireSRWLockExclusive(&g_lock);
         bool ok = BuildCopy(p);
         ReleaseSRWLockExclusive(&g_lock);
-        if (ok && g_probe && InterlockedExchange(&g_probeStarted, 1) == 0)
-        {
-            HANDLE th = CreateThread(nullptr, 0, ProbeThread, nullptr, 0, nullptr);
-            if (th) CloseHandle(th);
-        }
         if (ok) { *changed = true; return g_tempIni; }
     }
     else if (IsOurPng(p) && g_png[0] && GetFileAttributesA(g_png) != INVALID_FILE_ATTRIBUTES)
@@ -289,25 +177,11 @@ const char* Map(const char* p, bool* changed)
     return p;
 }
 
-// ---- texts (English fallback)
-
-struct Texts { const char* token; const wchar_t* name; const wchar_t* desc; };
-const Texts kTexts[] = {
-    {"english", L"Rail priority",
-     L"Dispatchers give passenger trains priority at signals: a waiting freight train lets the passenger "
-     L"train go first. Unlocks the Rail Priority switches in the Scripts menu."},
-    {"hungarian", L"Vasúti elsőbbség",
-     L"A forgalmisták elsőbbséget adnak a személyvonatoknak a jelzőknél: a várakozó tehervonat előreengedi "
-     L"a személyvonatot. Feloldja a Rail Priority kapcsolóit a Szkriptek menüben."},
-};
-wchar_t g_text[2][512];
-
 }  // namespace
 
-void Init(HMODULE self, bool enabled, bool probe)
+void Init(HMODULE self, bool enabled)
 {
     g_enabled = enabled;
-    g_probe   = probe;
     if (!enabled) { Log("research off in the ini"); return; }
 
     DWORD n = GetModuleFileNameA(self, g_pluginDir, sizeof(g_pluginDir));
@@ -340,18 +214,6 @@ const wchar_t* MapW(const wchar_t* path)
     const char* to = Map(narrow, &changed);
     if (!changed) return path;
     return to == g_tempIni ? g_tempIniW : g_pngW;
-}
-
-wchar_t* Text(int id, const char* langToken)
-{
-    if (id != ID_NAME && id != ID_DESC) return nullptr;
-    const Texts* pick = &kTexts[0];
-    for (const Texts& t : kTexts)
-        if (langToken && strcmp(t.token, langToken) == 0) pick = &t;
-    int i = id == ID_NAME ? 0 : 1;
-    wcsncpy(g_text[i], i == 0 ? pick->name : pick->desc, 511);
-    g_text[i][511] = 0;
-    return g_text[i];
 }
 
 }  // namespace wrsr::research

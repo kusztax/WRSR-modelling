@@ -1,0 +1,28 @@
+// Rail Priority - waits for the Rail priority research (started by the ON
+// button before the research was done). When it is done: starts the ON flag,
+// says so (text ids 1957001 / 1957004, served by wrsr_rail_mod.dll) and ends.
+
+include("SOVIETInstructions.txt");
+
+defineVariable(int, iDone);
+defineVariable(char, bOn);
+defineVariable(char, bRun);
+defineVariable(vec3, vWhere);
+
+defineFunction(main, void)
+{
+	bRun = 1;
+	while (bRun)
+	{
+		Research_IsCompleted("rail_priority", iDone);
+		if (iDone)
+		{
+			Script_Exists("RailPriority_OnFlag.txt", bOn);
+			if (!bOn) { Script_StartNew("RailPriority_OnFlag.txt"); }
+			Notification_CreateNewLangIDPic(1957001, 1957004, "RailPriority_On.png", vWhere);
+			bRun = 0;
+		}
+		if (bRun) { Script_Sleep(30.0); }
+	}
+	end();
+}

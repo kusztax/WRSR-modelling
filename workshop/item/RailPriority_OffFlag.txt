@@ -1,5 +1,6 @@
-// Rail Priority - flag: while this script runs, passenger-train priority at
-// signals is OFF in this save. It does nothing else; the plugin looks for it.
+// Rail Priority - flag of versions 1.0 / 1.1: priority OFF in this save.
+// Since 1.2 it means nothing (priority is ON only while RailPriority_OnFlag.txt
+// runs); kept so that older saves that still run it load without a warning.
 
 include("SOVIETInstructions.txt");
 

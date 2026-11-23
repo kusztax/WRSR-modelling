@@ -133,8 +133,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     // Texts for the Scripts menu notifications, in the game's language.
     if (sc.priority)
     {
-        wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0,
-                             H->configInt(kIni, kSection, "research_probe", 0) != 0);
+        wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0);
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
 

@@ -22,6 +22,8 @@ namespace wrsr::lang {
 constexpr int ID_TITLE    = 1957001;   // "Rail priority"
 constexpr int ID_TEXT_ON  = 1957002;   // what ON means
 constexpr int ID_TEXT_OFF = 1957003;   // what OFF means
+constexpr int ID_TEXT_DONE   = 1957004;   // research completed: switched on
+constexpr int ID_TEXT_NOTYET = 1957005;   // ON pressed before the research
 // 1957011..1957015: the maximum-wait button, for 30, 60, 90, 120, 180 s.
 constexpr int ID_HOLD_FIRST = 1957011;
 

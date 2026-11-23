@@ -19,7 +19,8 @@ namespace wrsr::script_switch {
 
 bool Init(const TsmHost* host, HMODULE exe);
 
-// True while the OFF flag script runs. Cheap: rescans at most every 500 ms.
+// True unless RailPriority_OnFlag.txt runs (v1.2: OFF until researched and
+// switched on). False when the switch is unavailable: the ini decides. Cheap: rescans at most every 500 ms.
 // Call from the game thread (the signal hook).
 bool PriorityOffByScript();
 
