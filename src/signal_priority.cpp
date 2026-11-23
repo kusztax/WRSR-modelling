@@ -312,8 +312,18 @@ void ReleaseRed(Train& t, const char* why)
     if (!t.redSig) return;
     BYTE* sig = t.redSig;
     void* world = script_switch::World();
+    bool fixed = false;
     if (g_blockState && world && Readable(sig, S_FREE_B + 1))
-        g_blockState(world, sig, 1, 1);           // the game's own answer
+    {
+        // The game's own answer - but only for the flag(s) we cleared. Asked
+        // for both, it also set the flag we never touched (0 -> 1 every time
+        // in the 2026-11-23 test), and a passenger train queued behind the
+        // held one got green. Leave that flag as the game had it.
+        unsigned char ka = *(sig + S_FREE_A), kb = *(sig + S_FREE_B);
+        g_blockState(world, sig, 1, 1);
+        if (!t.redA && *(sig + S_FREE_A) != ka) { *(sig + S_FREE_A) = ka; fixed = true; }
+        if (!t.redB && *(sig + S_FREE_B) != kb) { *(sig + S_FREE_B) = kb; fixed = true; }
+    }
     else if (Readable(sig, S_FREE_B + 1))
     {
         if (t.redA) *(sig + S_FREE_A) = 1;         // fallback: put back what we took
@@ -323,8 +333,9 @@ void ReleaseRed(Train& t, const char* why)
     Read(sig, S_FREE_A, fa);
     Read(sig, S_FREE_B, fb);
     if (TakeLine())
-        Log("aspect FREE  signal %p flags now %u/%u (%s, %s)", (void*)sig, fa, fb, why,
-            g_blockState && world ? "worked out by the game" : "restored");
+        Log("aspect FREE  signal %p flags now %u/%u (%s, %s%s)", (void*)sig, fa, fb, why,
+            g_blockState && world ? "worked out by the game" : "restored",
+            fixed ? "; the other flag kept as it was" : "");
     t.redSig = nullptr;
     t.redA = t.redB = false;
 }
