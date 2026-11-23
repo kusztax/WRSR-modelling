@@ -19,6 +19,7 @@ constexpr uintptr_t WORLD_SCRIPTS = 0x13BB8;
 constexpr uintptr_t SCRIPT_FILE   = 0xB8;
 constexpr uintptr_t SCRIPT_NAME   = 0xC0;
 const wchar_t kFlag[] = L"RailPriority_OffFlag";
+const int     kHoldValues[] = {30, 60, 90, 120, 180};
 
 const TsmHost* g_host  = nullptr;
 BYTE*          g_world = nullptr;
@@ -38,25 +39,72 @@ bool Read(const BYTE* base, uintptr_t off, T& out)
     return true;
 }
 
-bool ScriptIsFlag(BYTE* script)
+// The script's file and name, as one ASCII-ish string (empty on failure).
+void ScriptText(BYTE* script, wchar_t* out, size_t cap)
 {
+    out[0] = 0;
+    size_t len = 0;
     const uintptr_t at[2] = {SCRIPT_FILE, SCRIPT_NAME};
     for (uintptr_t off : at)
     {
         wchar_t* p = nullptr;
         if (!Read(script, off, p) || !p) continue;
-        wchar_t buf[200];
-        size_t  n = 0;
-        while (n + 1 < 200 && Readable(p + n, sizeof(wchar_t)) && p[n]) { buf[n] = p[n]; ++n; }
-        buf[n] = 0;
-        if (wcsstr(buf, kFlag)) return true;
+        for (size_t n = 0; len + 2 < cap && Readable(p + n, sizeof(wchar_t)) && p[n] && n < 200; ++n)
+            out[len++] = p[n];
+        out[len++] = L'|';
     }
-    return false;
+    out[len < cap ? len : cap - 1] = 0;
 }
 
-ULONGLONG g_lastScan = 0;
-bool      g_off      = false;
-int       g_logged   = -1;
+ULONGLONG g_lastScan  = 0;
+bool      g_off       = false;
+int       g_hold      = 0;
+int       g_logged    = -1;
+int       g_holdLogged = -1;
+
+void Scan()
+{
+    if (!g_world) return;
+    ULONGLONG now = GetTickCount64();
+    if (now - g_lastScan < 500) return;
+    g_lastScan = now;
+
+    BYTE** b = nullptr;
+    BYTE** e = nullptr;
+    bool   off  = false;
+    int    hold = 0;
+    if (Read(g_world, WORLD_SCRIPTS, b) && Read(g_world, WORLD_SCRIPTS + 8, e) && b && e > b && e - b <= 4096 &&
+        Readable(b, (size_t)(e - b) * sizeof(BYTE*)))
+    {
+        for (BYTE** p = b; p != e; ++p)
+        {
+            if (!*p) continue;
+            wchar_t text[480];
+            ScriptText(*p, text, sizeof(text) / sizeof(text[0]));
+            if (wcsstr(text, kFlag)) off = true;
+            for (int v : kHoldValues)
+            {
+                wchar_t name[48];
+                _snwprintf(name, 47, L"RailPriority_Hold%dFlag", v);
+                name[47] = 0;
+                if (wcsstr(text, name)) hold = v;
+            }
+        }
+    }
+    g_off  = off;
+    g_hold = hold;
+    if ((int)off != g_logged)
+    {
+        g_logged = (int)off;
+        Log("prio  Scripts menu: priority %s", off ? "OFF" : "ON");
+    }
+    if (hold != g_holdLogged)
+    {
+        g_holdLogged = hold;
+        if (hold) Log("prio  Scripts menu: jam guard %d s", hold);
+        else      Log("prio  Scripts menu: jam guard from the ini");
+    }
+}
 
 }  // namespace
 
@@ -78,27 +126,14 @@ void* World() { return g_world; }
 
 bool PriorityOffByScript()
 {
-    if (!g_world) return false;
-    ULONGLONG now = GetTickCount64();
-    if (now - g_lastScan < 500) return g_off;
-    g_lastScan = now;
-
-    BYTE** b = nullptr;
-    BYTE** e = nullptr;
-    bool   off = false;
-    if (Read(g_world, WORLD_SCRIPTS, b) && Read(g_world, WORLD_SCRIPTS + 8, e) && b && e > b && e - b <= 4096 &&
-        Readable(b, (size_t)(e - b) * sizeof(BYTE*)))
-    {
-        for (BYTE** p = b; p != e && !off; ++p)
-            if (*p && ScriptIsFlag(*p)) off = true;
-    }
-    g_off = off;
-    if ((int)off != g_logged)
-    {
-        g_logged = (int)off;
-        Log("prio  Scripts menu: priority %s", off ? "OFF" : "ON");
-    }
+    Scan();
     return g_off;
+}
+
+int HoldSecondsByScript()
+{
+    Scan();
+    return g_hold;
 }
 
 }  // namespace wrsr::script_switch

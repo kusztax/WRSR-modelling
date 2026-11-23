@@ -422,9 +422,14 @@ void SweepRed(ULONGLONG now)
 void Observe(BYTE* lead, char& answer)
 {
     AcquireSRWLockExclusive(&g_lock);
-    // Keep the Scripts menu state (and its log line) current even when no
+    // Keep the Scripts menu state (and its log lines) current even when no
     // freight train is about to be held. Throttled inside to every 500 ms.
-    if (g_cfg.priority) script_switch::PriorityOffByScript();
+    if (g_cfg.priority)
+    {
+        script_switch::PriorityOffByScript();
+        int hs = script_switch::HoldSecondsByScript();
+        g_pcfg.maxHoldMs = (uint32_t)(hs ? hs : g_cfg.maxHoldSec) * 1000u;
+    }
     Train* t = Find(lead);
     if (t)
     {

@@ -22,6 +22,8 @@ namespace wrsr::lang {
 constexpr int ID_TITLE    = 1957001;   // "Rail priority"
 constexpr int ID_TEXT_ON  = 1957002;   // what ON means
 constexpr int ID_TEXT_OFF = 1957003;   // what OFF means
+// 1957011..1957015: the jam-guard time button, for 30, 60, 90, 120, 180 s.
+constexpr int ID_HOLD_FIRST = 1957011;
 
 bool Init(const TsmHost* host, HMODULE exe, HMODULE engine);
 

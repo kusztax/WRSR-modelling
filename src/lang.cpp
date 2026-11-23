@@ -21,96 +21,129 @@ struct Texts
     const wchar_t* title;
     const wchar_t* on;
     const wchar_t* off;
+    const wchar_t* hold;   // %d = seconds
 };
 
 const Texts kTexts[] = {
     {"english", L"Rail priority",
      L"ON: passenger trains go first at signals.",
-     L"OFF: the game decides who goes first at signals."},
+     L"OFF: the game decides who goes first at signals.",
+     L"Jam guard: %d s. If the same passenger train does not move for this long, the freight train may go."},
     {"hungarian", L"Vasúti elsőbbség",
      L"BE: a személyvonatok elsőbbséget kapnak a jelzőknél.",
-     L"KI: a jelzőknél a játék dönti el a sorrendet."},
+     L"KI: a jelzőknél a játék dönti el a sorrendet.",
+     L"Beragadás elleni idő: %d mp. Ha ugyanaz a személyvonat ennyi ideig nem halad, a tehervonat mehet."},
     {"german", L"Bahnvorrang",
      L"EIN: Personenzüge haben an Signalen Vorrang.",
-     L"AUS: An Signalen entscheidet das Spiel die Reihenfolge."},
+     L"AUS: An Signalen entscheidet das Spiel die Reihenfolge.",
+     L"Stauschutz: %d s. Bewegt sich derselbe Personenzug so lange nicht, darf der Güterzug fahren."},
     {"czech", L"Přednost na železnici",
      L"ZAP: osobní vlaky mají u návěstidel přednost.",
-     L"VYP: o pořadí u návěstidel rozhoduje hra."},
+     L"VYP: o pořadí u návěstidel rozhoduje hra.",
+     L"Ochrana proti zablokování: %d s. Pokud se tentýž osobní vlak tak dlouho nepohne, nákladní vlak smí jet."},
     {"slovak", L"Prednosť na železnici",
      L"ZAP: osobné vlaky majú pri návestidlách prednosť.",
-     L"VYP: o poradí pri návestidlách rozhoduje hra."},
+     L"VYP: o poradí pri návestidlách rozhoduje hra.",
+     L"Ochrana proti zablokovaniu: %d s. Ak sa ten istý osobný vlak tak dlho nepohne, nákladný vlak môže ísť."},
     {"polish", L"Pierwszeństwo kolejowe",
      L"WŁ.: pociągi pasażerskie mają pierwszeństwo na semaforach.",
-     L"WYŁ.: o kolejności na semaforach decyduje gra."},
+     L"WYŁ.: o kolejności na semaforach decyduje gra.",
+     L"Ochrona przed blokadą: %d s. Jeśli ten sam pociąg pasażerski nie ruszy przez ten czas, pociąg towarowy może jechać."},
     {"russian", L"Приоритет на железной дороге",
      L"ВКЛ: пассажирские поезда имеют приоритет на светофорах.",
-     L"ВЫКЛ: порядок на светофорах определяет игра."},
+     L"ВЫКЛ: порядок на светофорах определяет игра.",
+     L"Защита от затора: %d с. Если тот же пассажирский поезд не движется столько времени, грузовой поезд может ехать."},
     {"ukrain", L"Пріоритет на залізниці",
      L"УВІМК: пасажирські поїзди мають пріоритет на світлофорах.",
-     L"ВИМК: порядок на світлофорах визначає гра."},
+     L"ВИМК: порядок на світлофорах визначає гра.",
+     L"Захист від затору: %d с. Якщо той самий пасажирський поїзд не рухається стільки часу, вантажний поїзд може їхати."},
     {"bulgar", L"Железопътен приоритет",
      L"ВКЛ.: пътническите влакове минават първи на сигналите.",
-     L"ИЗКЛ.: редът на сигналите се определя от играта."},
+     L"ИЗКЛ.: редът на сигналите се определя от играта.",
+     L"Защита от задръстване: %d с. Ако същият пътнически влак не се движи толкова време, товарният влак може да тръгне."},
     {"french", L"Priorité ferroviaire",
      L"ACTIVÉE : les trains de voyageurs passent en premier aux signaux.",
-     L"DÉSACTIVÉE : le jeu décide de l'ordre aux signaux."},
+     L"DÉSACTIVÉE : le jeu décide de l'ordre aux signaux.",
+     L"Anti-blocage : %d s. Si le même train de voyageurs ne bouge pas pendant ce temps, le train de marchandises peut partir."},
     {"spanish", L"Prioridad ferroviaria",
      L"ACTIVADA: los trenes de pasajeros pasan primero en las señales.",
-     L"DESACTIVADA: el juego decide el orden en las señales."},
+     L"DESACTIVADA: el juego decide el orden en las señales.",
+     L"Antibloqueo: %d s. Si el mismo tren de pasajeros no avanza durante ese tiempo, el tren de mercancías puede salir."},
     {"italian", L"Precedenza ferroviaria",
      L"ATTIVA: i treni passeggeri passano per primi ai segnali.",
-     L"DISATTIVA: l'ordine ai segnali lo decide il gioco."},
+     L"DISATTIVA: l'ordine ai segnali lo decide il gioco.",
+     L"Anti-blocco: %d s. Se lo stesso treno passeggeri non si muove per questo tempo, il treno merci può partire."},
     {"brazil", L"Prioridade ferroviária",
      L"LIGADA: os trens de passageiros passam primeiro nos sinais.",
-     L"DESLIGADA: o jogo decide a ordem nos sinais."},
+     L"DESLIGADA: o jogo decide a ordem nos sinais.",
+     L"Antitravamento: %d s. Se o mesmo trem de passageiros não andar por esse tempo, o trem de carga pode seguir."},
     {"portug", L"Prioridade ferroviária",
      L"LIGADA: os comboios de passageiros passam primeiro nos sinais.",
-     L"DESLIGADA: o jogo decide a ordem nos sinais."},
+     L"DESLIGADA: o jogo decide a ordem nos sinais.",
+     L"Antibloqueio: %d s. Se o mesmo comboio de passageiros não andar durante esse tempo, o comboio de mercadorias pode seguir."},
     {"dutch", L"Spoorvoorrang",
      L"AAN: reizigerstreinen gaan bij seinen voor.",
-     L"UIT: het spel bepaalt de volgorde bij seinen."},
+     L"UIT: het spel bepaalt de volgorde bij seinen.",
+     L"Blokkadebeveiliging: %d s. Als dezelfde reizigerstrein zo lang niet rijdt, mag de goederentrein gaan."},
     {"swed", L"Järnvägsprioritet",
      L"PÅ: persontåg går först vid signaler.",
-     L"AV: spelet avgör ordningen vid signaler."},
+     L"AV: spelet avgör ordningen vid signaler.",
+     L"Låsningsskydd: %d s. Om samma persontåg inte rör sig så länge får godståget köra."},
     {"finn", L"Rautatien etuajo-oikeus",
      L"PÄÄLLÄ: matkustajajunat menevät opastimilla ensin.",
-     L"POIS: peli päättää järjestyksen opastimilla."},
+     L"POIS: peli päättää järjestyksen opastimilla.",
+     L"Jumiutumissuoja: %d s. Jos sama matkustajajuna ei liiku näin pitkään, tavarajuna saa lähteä."},
     {"turk", L"Demiryolu önceliği",
      L"AÇIK: yolcu trenleri sinyallerde önce geçer.",
-     L"KAPALI: sinyallerdeki sırayı oyun belirler."},
+     L"KAPALI: sinyallerdeki sırayı oyun belirler.",
+     L"Kilitlenme koruması: %d sn. Aynı yolcu treni bu süre boyunca hareket etmezse yük treni geçebilir."},
     {"romanian", L"Prioritate feroviară",
      L"PORNIT: trenurile de călători trec primele la semnale.",
-     L"OPRIT: ordinea la semnale o decide jocul."},
+     L"OPRIT: ordinea la semnale o decide jocul.",
+     L"Protecție la blocaj: %d s. Dacă același tren de călători nu se mișcă atâta timp, trenul de marfă poate pleca."},
     {"greek", L"Σιδηροδρομική προτεραιότητα",
      L"ΕΝΕΡΓΟ: τα επιβατικά τρένα περνούν πρώτα στα σήματα.",
-     L"ΑΝΕΝΕΡΓΟ: τη σειρά στα σήματα την αποφασίζει το παιχνίδι."},
+     L"ΑΝΕΝΕΡΓΟ: τη σειρά στα σήματα την αποφασίζει το παιχνίδι.",
+     L"Προστασία από εμπλοκή: %d δευτ. Αν το ίδιο επιβατικό τρένο δεν κινηθεί τόσο χρόνο, το εμπορικό τρένο μπορεί να περάσει."},
     {"tchinese", L"鐵路優先權",
      L"開：客運列車在號誌處優先通過。",
-     L"關：號誌處的通行順序由遊戲決定。"},
+     L"關：號誌處的通行順序由遊戲決定。",
+     L"防堵塞時間：%d 秒。若同一列客運列車在此時間內未移動，貨運列車可先行。"},
     {"traditional", L"鐵路優先權",
      L"開：客運列車在號誌處優先通過。",
-     L"關：號誌處的通行順序由遊戲決定。"},
+     L"關：號誌處的通行順序由遊戲決定。",
+     L"防堵塞時間：%d 秒。若同一列客運列車在此時間內未移動，貨運列車可先行。"},
     {"chinese", L"铁路优先权",
      L"开：客运列车在信号机处优先通过。",
-     L"关：信号机处的通行顺序由游戏决定。"},
+     L"关：信号机处的通行顺序由游戏决定。",
+     L"防堵塞时间：%d 秒。若同一列客运列车在此时间内未移动，货运列车可先行。"},
     {"japan", L"鉄道の優先通行",
      L"オン：信号で旅客列車が優先されます。",
-     L"オフ：信号での順番はゲームが決めます。"},
+     L"オフ：信号での順番はゲームが決めます。",
+     L"渋滞防止時間：%d 秒。同じ旅客列車がこの時間動かない場合、貨物列車が進めます。"},
     {"korean", L"철도 우선권",
      L"켜짐: 신호에서 여객 열차가 먼저 통과합니다.",
-     L"꺼짐: 신호에서의 순서는 게임이 정합니다."},
+     L"꺼짐: 신호에서의 순서는 게임이 정합니다.",
+     L"정체 방지 시간: %d초. 같은 여객 열차가 이 시간 동안 움직이지 않으면 화물 열차가 갈 수 있습니다."},
 };
 
 const Texts* volatile g_current = &kTexts[0];
 
 // GetString returns a non-const pointer, so hand out our own writable copies.
 wchar_t g_title[128], g_on[256], g_off[256];
+const int kHoldValues[5] = {30, 60, 90, 120, 180};
+wchar_t g_hold[5][256];
 
 void Apply(const Texts* t)
 {
     wcsncpy(g_title, t->title, 127);
     wcsncpy(g_on, t->on, 255);
     wcsncpy(g_off, t->off, 255);
+    for (int i = 0; i < 5; ++i)
+    {
+        _snwprintf(g_hold[i], 255, t->hold, kHoldValues[i]);
+        g_hold[i][255] = 0;
+    }
     g_current = t;
 }
 
@@ -187,6 +220,7 @@ wchar_t* h_getString(void* self, int id)
     case ID_TEXT_ON:  return g_on;
     case ID_TEXT_OFF: return g_off;
     }
+    if (id >= ID_HOLD_FIRST && id < ID_HOLD_FIRST + 5) return g_hold[id - ID_HOLD_FIRST];
     return o_getString(self, id);
 }
 

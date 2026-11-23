@@ -6,24 +6,24 @@ In the base game, when a block frees up and a passenger train and a freight trai
 
 With Rail Priority the passenger train always goes first:
 [list]
-[*] a waiting freight train stays at red while a passenger train waits for the same block at another signal;
+[*] a waiting freight train stays at red while a passenger train waits for the same block at another signal (since 1.1 its signal shows red, too);
 [*] a train counts as a passenger train when it has at least one passenger car;
 [*] between two passenger trains, or two freight trains, the game decides as before;
 [*] a moving train is never stopped: only a train already waiting at a signal is kept waiting.
 [/list]
 
-[b]Freight trains can wait for a long time.[/b] On a line where passenger trains keep coming, a freight train waits until there is a gap. This is on purpose. If the same passenger train does not move for 60 seconds (a jam), the freight train goes anyway. The time can be 30, 60, 90, 120 or 180 seconds: max_hold_s in plugins/wrsr_rail_mod.ini (a Steam update of the mod resets this file).
+[b]Freight trains can wait for a long time.[/b] On a line where passenger trains keep coming, a freight train waits until there is a gap. This is on purpose. If the same passenger train does not move for 60 seconds (a jam), the freight train goes anyway. This jam guard time can be 30, 60, 90, 120 or 180 seconds: set it with the third button in Options → Scripts (kept in each save).
 
 [h3]Switching it on and off[/h3]
-Options → Scripts has two buttons: ON and OFF. The choice is kept in each save. A save that never pressed OFF has the priority ON.
-[b]Running scripts: 1[/b] in the Scripts window means the priority is OFF in this save (the OFF button runs a small script that does nothing else).
+Options → Scripts has three buttons: ON, OFF and the jam guard time (each press steps 30 → 60 → 90 → 120 → 180 seconds). The choices are kept in each save. A save that never pressed OFF has the priority ON.
+[b]Running scripts[/b] in the Scripts window counts the mod's small flag scripts, which do nothing else: one for OFF, one for a chosen jam guard time.
 
 [h3]Requirements[/h3]
 [list]
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader or Republic Mod Loader
 [/list]
-Works together with Rail Operations (tested). Nothing is written into your save except the running OFF script, and saves load without the mod. If a save was made with the priority OFF and the mod is no longer subscribed, the game asks about a missing Workshop item when loading it: choose the red X (do not subscribe) and the save loads normally.
+Works together with Rail Operations (tested). Nothing is written into your save except the running flag scripts, and saves load without the mod. If a save has a flag script running (OFF or a jam guard time) and the mod is no longer subscribed, the game asks about a missing Workshop item when loading it: choose the red X (do not subscribe) and the save loads normally.
 
 [h3]Important: start the game through the loader, every time[/h3]
 The priority is a native plugin: it runs only when the game is started with TesmioLoader (tesmiolauncher.exe) or Republic Mod Loader. Started with Steam's Play button, the game loads without it: the Scripts buttons are still there, but they do nothing and their notification is empty. Check the bottom-left corner of the main menu: it shows tesmioloader or Republic Mod Loader ACTIVE when a loader is running.
@@ -41,24 +41,24 @@ Az alapjátékban, amikor egy blokk felszabadul, és két különböző jelzőn�
 
 A Rail Priority mellett mindig a személyvonat megy elsőként:
 [list]
-[*] a várakozó tehervonat jelzője piros marad, amíg egy másik jelzőnél személyvonat vár ugyanarra a blokkra;
+[*] a várakozó tehervonat piros jelzőnél marad, amíg egy másik jelzőnél személyvonat vár ugyanarra a blokkra (az 1.1 óta a jelző is pirosat mutat);
 [*] személyvonat az, amelyikben legalább egy személykocsi van;
 [*] két személyvonat vagy két tehervonat között továbbra is a játék dönt;
 [*] mozgó vonatot a mod soha nem állít meg, csak a jelzőnél már várakozót tartja várakozásban.
 [/list]
 
-[b]A tehervonat sokáig várhat.[/b] Ha a vonalon folyamatosan jönnek a személyvonatok, a tehervonat addig vár, amíg rés nem nyílik. Ez szándékos. Ha ugyanaz a személyvonat 60 másodpercig nem mozdul (dugó), a tehervonat mégis elindul. Az idő 30, 60, 90, 120 vagy 180 másodperc lehet: max_hold_s a plugins/wrsr_rail_mod.ini fájlban (a mod Steam-frissítése visszaállítja ezt a fájlt).
+[b]A tehervonat sokáig várhat.[/b] Ha a vonalon folyamatosan jönnek a személyvonatok, a tehervonat addig vár, amíg rés nem nyílik. Ez szándékos. Ha ugyanaz a személyvonat 60 másodpercig nem mozdul (dugó), a tehervonat mégis elindul. Ez a beragadás elleni idő 30, 60, 90, 120 vagy 180 másodperc lehet: a Beállítások → Szkriptek harmadik gombjával állítható (mentésenként megmarad).
 
 [h3]Be- és kikapcsolás[/h3]
-A Beállítások → Szkriptek menüben két gomb van: BE és KI. A beállítás mentésenként megmarad. Ha egy mentésben senki nem nyomta meg a KI gombot, az elsőbbség BE van kapcsolva.
-[b]Jelenleg futó szkriptek: 1[/b] a Szkriptek ablakban azt jelenti, hogy ebben a mentésben az elsőbbség KI van kapcsolva (a KI gomb egy kis szkriptet indít, ami mást nem csinál).
+A Beállítások → Szkriptek menüben három gomb van: BE, KI és a beragadás elleni idő (minden nyomás lép egyet: 30 → 60 → 90 → 120 → 180 másodperc). A beállítások mentésenként megmaradnak. Ha egy mentésben senki nem nyomta meg a KI gombot, az elsőbbség BE van kapcsolva.
+[b]Jelenleg futó szkriptek[/b] a Szkriptek ablakban a mod kis jelzőszkriptjeit is számolja, amelyek mást nem csinálnak: egyet a KI állapothoz, egyet a választott beragadás elleni időhöz.
 
 [h3]Követelmények[/h3]
 [list]
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader vagy Republic Mod Loader
 [/list]
-Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó KI-szkripten kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek. Ha egy mentés KI állapotban készült, és a modra már nem vagy feliratkozva, betöltéskor a játék hiányzó Workshop-elemre figyelmeztet: válaszd a piros X-et (nem iratkozol fel), és a mentés rendben betöltődik.
+Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó jelzőszkripteken kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek. Ha egy mentésben jelzőszkript fut (KI vagy beragadás elleni idő), és a modra már nem vagy feliratkozva, betöltéskor a játék hiányzó Workshop-elemre figyelmeztet: válaszd a piros X-et (nem iratkozol fel), és a mentés rendben betöltődik.
 
 [h3]Fontos: a játékot mindig a loaderrel indítsd[/h3]
 Az elsőbbség natív plugin: csak akkor működik, ha a játékot a TesmioLoaderrel (tesmiolauncher.exe) vagy a Republic Mod Loaderrel indítod. A Steam Play gombjával indítva a játék nélküle töltődik be: a Szkriptek gombjai ott vannak, de nem csinálnak semmit, és az értesítésük üres. A főmenü bal alsó sarkában ellenőrizheted: ha fut a loader, ott tesmioloader vagy Republic Mod Loader ACTIVE áll.

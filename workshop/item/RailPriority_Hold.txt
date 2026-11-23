@@ -1,0 +1,70 @@
+// Rail Priority - button: steps the jam guard 30 -> 60 -> 90 -> 120 -> 180 s
+// -> 30 ... and says the new value in the player's language (text ids
+// 1957001 and 1957011..1957015 are served by wrsr_rail_mod.dll).
+// The value is the one RailPriority_Hold<N>Flag.txt that runs, so it is saved
+// with the game. None runs: the ini's max_hold_s (60 by default) applies, and
+// the first press goes on to 90.
+
+include("SOVIETInstructions.txt");
+
+defineVariable(char, b30);
+defineVariable(char, b60);
+defineVariable(char, b90);
+defineVariable(char, b120);
+defineVariable(char, b180);
+defineVariable(char, bAny);
+defineVariable(char, n30);
+defineVariable(char, n60);
+defineVariable(char, n90);
+defineVariable(char, n120);
+defineVariable(char, n180);
+defineVariable(vec3, vWhere);
+
+defineFunction(main, void)
+{
+	Script_Exists("RailPriority_Hold30Flag.txt", b30);
+	Script_Exists("RailPriority_Hold60Flag.txt", b60);
+	Script_Exists("RailPriority_Hold90Flag.txt", b90);
+	Script_Exists("RailPriority_Hold120Flag.txt", b120);
+	Script_Exists("RailPriority_Hold180Flag.txt", b180);
+
+	bAny = 0;
+	n30 = 0; n60 = 0; n90 = 0; n120 = 0; n180 = 0;
+	if (b30)  { n60 = 1;  bAny = 1; Script_DestroyByName("RailPriority_Hold30Flag.txt"); }
+	if (b60)  { n90 = 1;  bAny = 1; Script_DestroyByName("RailPriority_Hold60Flag.txt"); }
+	if (b90)  { n120 = 1; bAny = 1; Script_DestroyByName("RailPriority_Hold90Flag.txt"); }
+	if (b120) { n180 = 1; bAny = 1; Script_DestroyByName("RailPriority_Hold120Flag.txt"); }
+	if (b180) { n30 = 1;  bAny = 1; Script_DestroyByName("RailPriority_Hold180Flag.txt"); }
+	if (!bAny) { n90 = 1; }
+
+	if (n30)
+	{
+		Script_StartNew("RailPriority_Hold30Flag.txt");
+		Notification_CreateNewLangIDPic(1957001, 1957011, "RailPriority_Hold.png", vWhere);
+		end();
+	}
+	if (n60)
+	{
+		Script_StartNew("RailPriority_Hold60Flag.txt");
+		Notification_CreateNewLangIDPic(1957001, 1957012, "RailPriority_Hold.png", vWhere);
+		end();
+	}
+	if (n90)
+	{
+		Script_StartNew("RailPriority_Hold90Flag.txt");
+		Notification_CreateNewLangIDPic(1957001, 1957013, "RailPriority_Hold.png", vWhere);
+		end();
+	}
+	if (n120)
+	{
+		Script_StartNew("RailPriority_Hold120Flag.txt");
+		Notification_CreateNewLangIDPic(1957001, 1957014, "RailPriority_Hold.png", vWhere);
+		end();
+	}
+	if (n180)
+	{
+		Script_StartNew("RailPriority_Hold180Flag.txt");
+		Notification_CreateNewLangIDPic(1957001, 1957015, "RailPriority_Hold.png", vWhere);
+	}
+	end();
+}
