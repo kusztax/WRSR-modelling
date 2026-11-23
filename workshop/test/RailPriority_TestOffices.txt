@@ -1,5 +1,5 @@
-// TEST ONLY (never uploaded): every 5 s, finds the first 4 finished technical
-// offices (stand-in for the future signal box) and keeps their position and
+// TEST ONLY (never uploaded): every 5 s, finds the first 4 finished railway
+// construction offices (stand-in for the future signal box) and keeps their position and
 // worker count in its variables, behind two marker values, for the plugin's
 // office probe (office_probe = 1) to find in memory.
 
@@ -42,7 +42,7 @@ defineFunction(main, void)
 		for (i=0, i<nNum, i=i+1)
 		{
 			bui.GetDataByIndex(i);
-			if (bui.nValidRead & bui.nType ? BUILDINGTYPE_TECHNICAL_OFFICE & bui.fPercFinished > 0.99999)
+			if (bui.nValidRead & bui.nType ? BUILDINGTYPE_CONSTRUCTION_OFFICE_RAIL & bui.fPercFinished > 0.99999)
 			{
 				if (n ? 0) { fX0 = bui.vPosition.x; fZ0 = bui.vPosition.z; fW0 = bui.nWorkersNum; }
 				if (n ? 1) { fX1 = bui.vPosition.x; fZ1 = bui.vPosition.z; fW1 = bui.nWorkersNum; }
