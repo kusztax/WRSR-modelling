@@ -342,6 +342,10 @@ wchar_t* h_getString(void* self, int id)
     case 1957091: return (wchar_t*)L"TEST: logistic_optimization completed = NO";
     case 1957092: return (wchar_t*)L"TEST: rail_priority completed = YES";
     case 1957093: return (wchar_t*)L"TEST: rail_priority completed = NO";
+    case 1957094: return (wchar_t*)L"TEST: container_standards completed = YES";
+    case 1957095: return (wchar_t*)L"TEST: container_standards completed = NO";
+    case 1957096: return (wchar_t*)L"TEST: rail_priority available = YES";
+    case 1957097: return (wchar_t*)L"TEST: rail_priority available = NO";
     }
     if (id >= ID_HOLD_FIRST && id < ID_HOLD_FIRST + 5) return g_hold[id - ID_HOLD_FIRST];
     return o_getString(self, id);

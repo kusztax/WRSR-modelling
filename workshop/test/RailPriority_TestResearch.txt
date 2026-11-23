@@ -1,21 +1,27 @@
-// TEST ONLY (never uploaded): marks the Rail priority research done through
-// the scenario instruction, then reports what Research_IsCompleted says for
-// logistic_optimization (should be done) and rail_priority. Texts 1957090..93
-// are served by wrsr_rail_mod.dll. Packaged only with TEST=1.
+// TEST ONLY (never uploaded): does Scenario_UnlockResearch make a research
+// "completed" for Research_IsCompleted? Unlocks a stock research
+// (container_standards) and ours, then reports both, and whether ours is
+// available. Texts 1957090..97 are served by wrsr_rail_mod.dll.
 
 include("SOVIETInstructions.txt");
 
-defineVariable(int, iLog);
+defineVariable(int, iCont);
 defineVariable(int, iRail);
+defineVariable(int, iAvail);
 defineVariable(vec3, vWhere);
 
 defineFunction(main, void)
 {
+	Research_IsAvailable("rail_priority", iAvail);
+	if (iAvail) { Notification_CreateNewLangIDPic(1957001, 1957096, "RailPriority_On.png", vWhere); }
+	if (!iAvail) { Notification_CreateNewLangIDPic(1957001, 1957097, "RailPriority_Off.png", vWhere); }
+
+	Scenario_UnlockResearch("container_standards");
 	Scenario_UnlockResearch("rail_priority");
-	Research_IsCompleted("logistic_optimization", iLog);
+	Research_IsCompleted("container_standards", iCont);
 	Research_IsCompleted("rail_priority", iRail);
-	if (iLog) { Notification_CreateNewLangIDPic(1957001, 1957090, "RailPriority_On.png", vWhere); }
-	if (!iLog) { Notification_CreateNewLangIDPic(1957001, 1957091, "RailPriority_Off.png", vWhere); }
+	if (iCont) { Notification_CreateNewLangIDPic(1957001, 1957094, "RailPriority_On.png", vWhere); }
+	if (!iCont) { Notification_CreateNewLangIDPic(1957001, 1957095, "RailPriority_Off.png", vWhere); }
 	if (iRail) { Notification_CreateNewLangIDPic(1957001, 1957092, "RailPriority_On.png", vWhere); }
 	if (!iRail) { Notification_CreateNewLangIDPic(1957001, 1957093, "RailPriority_Off.png", vWhere); }
 	end();
