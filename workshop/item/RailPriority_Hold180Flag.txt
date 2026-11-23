@@ -1,6 +1,5 @@
-// Rail Priority - flag: while this script runs, the jam guard in this save is
-// 180 s (a held freight train goes if the same passenger train has not moved
-// for that long). It does nothing else; the plugin looks for it.
+// Rail Priority - flag: while this script runs, the maximum wait in this save is
+// 180 s (a freight train waits at most that long for passenger trains). It does nothing else; the plugin looks for it.
 
 include("SOVIETInstructions.txt");
 

@@ -41,7 +41,7 @@ fi
     printf '%s\n\n' '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT'
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_On "Rail priority: ON - passenger trains first at signals"'
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"'
-    printf '%s\n\n' '$OBJECT_SCRIPT RailPriority_Hold "Rail priority: jam guard time (30/60/90/120/180 s)"'
+    printf '%s\n\n' '$OBJECT_SCRIPT RailPriority_Hold "Rail priority: freight maximum wait (30/60/90/120/180 s)"'
     printf '%s\n\n' '$ITEM_NAME "Rail Priority"'
     printf '$ITEM_DESC "'
     cat workshop/description.bbcode

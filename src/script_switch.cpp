@@ -101,8 +101,8 @@ void Scan()
     if (hold != g_holdLogged)
     {
         g_holdLogged = hold;
-        if (hold) Log("prio  Scripts menu: jam guard %d s", hold);
-        else      Log("prio  Scripts menu: jam guard from the ini");
+        if (hold) Log("prio  Scripts menu: maximum wait %d s", hold);
+        else      Log("prio  Scripts menu: maximum wait from the ini");
     }
 }
 

@@ -174,7 +174,8 @@ struct Train
     ULONGLONG waitSince;
     ULONGLONG wentAt;
     ULONGLONG holdStart;    // we are holding it since (0 = not)
-    int       holdFor;      // id of the passenger train it yields to
+    int       holdFor;      // id of the train it yields to
+    ULONGLONG starveSince;  // freight: first held at this signal (0 = never); the maximum wait counts from here
     BYTE*     redSig;       // signal we turned red for this hold (signal_aspect)
     bool      redA, redB;   // which of its two block flags we cleared
 };
@@ -328,15 +329,23 @@ void ReleaseRed(Train& t, const char* why)
     t.redA = t.redB = false;
 }
 
+Train* FindById(int id)
+{
+    if (id <= 0) return nullptr;
+    for (Train& t : g_train)
+        if (t.veh && t.id == id) return &t;
+    return nullptr;
+}
+
 char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
 {
-    if (!g_cfg.priority || t.pax) return gameAnswer;
+    if (!g_cfg.priority) return gameAnswer;
     // With the signal turned red by us, the game itself says WAIT: the hold
     // must still be looked at every frame, or it would never end.
     bool ownRed = t.redSig != nullptr;
     if (!gameAnswer && !ownRed) return gameAnswer;
-    // Cheap exits before scanning the table: only a waiting (or held)
-    // freight train in front of a known block can be held.
+    // Cheap exits before scanning the table: only a waiting (or held) train
+    // in front of a known block can be held.
     if ((!t.waiting && !t.holdStart) || !t.blockKey)
     {
         ReleaseRed(t, "no longer held");
@@ -347,59 +356,74 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
     if (script_switch::PriorityOffByScript())
     {
         if (t.holdStart && TakeLine())
-            Log("prio  GO     train #%d FRT released: priority switched off in the Scripts menu", t.id);
-        t.holdStart = 0;
+            Log("prio  GO     train #%d %s released: priority switched off in the Scripts menu", t.id, Kind(t));
+        t.holdStart   = 0;
+        t.starveSince = 0;
         if (ownRed) { ReleaseRed(t, "switched off"); return 0; }   // real answer next frame
         return gameAnswer;
     }
 
-    // Gather the passenger trains that might compete for this block.
-    priority::PaxView view[64];
+    // Gather the trains of the other kind that might compete for this block.
+    priority::TrainView view[64];
     int n = 0;
     for (int i = 0; i < kSlots && n < 64; ++i)
     {
         const Train& p = g_train[i];
-        if (!p.veh || !p.pax || p.blockKey != t.blockKey || !p.blockKey) continue;
-        view[n++] = priority::PaxView{p.blockKey, p.node, p.waiting, p.lastSeen, p.wentAt, p.id};
+        if (!p.veh || p.pax == t.pax || p.blockKey != t.blockKey || !p.blockKey) continue;
+        bool due = !p.pax && priority::IsDue(p.starveSince, now, g_pcfg);
+        view[n++] = priority::TrainView{p.blockKey, p.node, p.waiting, p.lastSeen, p.wentAt, p.id, due};
     }
 
-    priority::Request req{false, t.waiting, t.blockKey, t.node, t.holdStart, now};
+    priority::Request req{t.pax, t.waiting, t.blockKey, t.node, t.holdStart, t.starveSince, now};
     int who = 0;
     priority::Verdict v = priority::Decide(req, view, n, g_pcfg, &who);
 
     switch (v)
     {
     case priority::Verdict::Hold:
-        // The timeout guards against a deadlock, not against starvation: it
-        // runs per passenger train. A new passenger train going first means
-        // traffic is flowing, so the clock starts again - a freight train on
-        // a busy passenger line can wait indefinitely, by design.
+        if (!t.pax && !t.starveSince) t.starveSince = now;   // the maximum wait starts here
         if (!t.holdStart || who != t.holdFor)
         {
-            t.holdStart = now;
-            t.holdFor   = who;
+            if (!t.holdStart) t.holdStart = now;
+            t.holdFor = who;
             if (TakeLine())
-                Log("prio  HOLD   train #%d FRT at signal %p (block %llx) - passenger train #%d goes first",
-                    t.id, (void*)a.sig, (unsigned long long)t.blockKey, who);
+            {
+                if (t.pax)
+                    Log("prio  HOLD   train #%d PAX at signal %p (block %llx) - freight train #%d has waited its maximum, it goes first",
+                        t.id, (void*)a.sig, (unsigned long long)t.blockKey, who);
+                else
+                    Log("prio  HOLD   train #%d FRT at signal %p (block %llx) - passenger train #%d goes first (waiting %.0f of %u s)",
+                        t.id, (void*)a.sig, (unsigned long long)t.blockKey, who,
+                        (double)(now - t.starveSince) / 1000.0, g_pcfg.maxHoldMs / 1000u);
+            }
         }
         if (ownRed) KeepRed(t);
         else TurnRed(t, a);
         return 0;
 
     case priority::Verdict::Timeout:
-        if (TakeLine())
-            Log("prio  TIMEOUT train #%d FRT released: passenger train #%d made no progress for %.0f s",
-                t.id, who, (double)(now - t.holdStart) / 1000.0);
+        if (t.pax)
+        {
+            // The freight train could not use its turn (its way on is not
+            // free): the passenger train goes, the freight starts counting again.
+            if (TakeLine())
+                Log("prio  TIMEOUT train #%d PAX released after %.0f s: freight train #%d did not take its turn",
+                    t.id, (double)(now - t.holdStart) / 1000.0, who);
+            if (Train* f = FindById(who)) f->starveSince = now;
+        }
+        else if (TakeLine())
+            Log("prio  MAXWAIT train #%d FRT has waited %.0f s (maximum %u s) - it goes before the passenger trains",
+                t.id, (double)(now - t.starveSince) / 1000.0, g_pcfg.maxHoldMs / 1000u);
         t.holdStart = 0;
-        if (ownRed) { ReleaseRed(t, "timeout"); return 0; }   // real answer next frame
+        if (ownRed) { ReleaseRed(t, "maximum wait"); return 0; }   // real answer next frame
         return gameAnswer;
 
     case priority::Verdict::Go:
         if (t.holdStart && TakeLine())
-            Log("prio  GO     train #%d FRT after being held %.1f s for passenger train #%d", t.id,
+            Log("prio  GO     train #%d %s after being held %.1f s for train #%d", t.id, Kind(t),
                 (double)(now - t.holdStart) / 1000.0, t.holdFor);
         t.holdStart = 0;
-        if (ownRed) { ReleaseRed(t, "passenger train gone"); return 0; }   // real answer next frame
+        if (ownRed) { ReleaseRed(t, "competitor gone"); return 0; }   // real answer next frame
         return gameAnswer;
     }
     return gameAnswer;
@@ -440,6 +464,11 @@ void Observe(BYTE* lead, char& answer)
         // out once per signal, not once per frame.
         if (a.node != t->node)
         {
+            // Past the signal (or a new route): the maximum wait starts anew.
+            if (t->starveSince && t->holdStart == 0 && TakeLine() && !t->pax)
+                Log("prio  PASSED train #%d FRT after waiting %.0f s since first held", t->id,
+                    (double)(now - t->starveSince) / 1000.0);
+            t->starveSince = 0;
             t->node = a.node;
             BlockId b = WalkBlock(a.seg);
             t->blockKey  = b.key;
@@ -489,7 +518,7 @@ HMODULE g_exe = nullptr;
 
 void LogLive(const char* how)
 {
-    Log("prio  live (%s): priority %s in the ini (deadlock guard %d s), census %s", how,
+    Log("prio  live (%s): priority %s in the ini (maximum wait %d s), census %s", how,
         g_cfg.priority ? "ON" : "off", g_cfg.maxHoldSec, g_cfg.census ? "on" : "off");
 }
 

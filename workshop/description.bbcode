@@ -12,18 +12,18 @@ With Rail Priority the passenger train always goes first:
 [*] a moving train is never stopped: only a train already waiting at a signal is kept waiting.
 [/list]
 
-[b]Freight trains can wait for a long time.[/b] On a line where passenger trains keep coming, a freight train waits until there is a gap. This is on purpose. If the same passenger train does not move for 60 seconds (a jam), the freight train goes anyway. This jam guard time can be 30, 60, 90, 120 or 180 seconds: set it with the third button in Options → Scripts (kept in each save).
+[b]Maximum wait.[/b] A freight train waits for passenger trains at most 60 seconds, counted from the first time it was held at that signal. Then it gets the next free block, and the passenger trains wait for it once. The maximum wait can be 30, 60, 90, 120 or 180 seconds: set it with the third button in Options → Scripts (kept in each save).
 
 [h3]Switching it on and off[/h3]
-Options → Scripts has three buttons: ON, OFF and the jam guard time (each press steps 30 → 60 → 90 → 120 → 180 seconds). The choices are kept in each save. A save that never pressed OFF has the priority ON.
-[b]Running scripts[/b] in the Scripts window counts the mod's small flag scripts, which do nothing else: one for OFF, one for a chosen jam guard time.
+Options → Scripts has three buttons: ON, OFF and the freight maximum wait (each press steps 30 → 60 → 90 → 120 → 180 seconds). The choices are kept in each save. A save that never pressed OFF has the priority ON.
+[b]Running scripts[/b] in the Scripts window counts the mod's small flag scripts, which do nothing else: one for OFF, one for a chosen maximum wait.
 
 [h3]Requirements[/h3]
 [list]
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader or Republic Mod Loader
 [/list]
-Works together with Rail Operations (tested). Nothing is written into your save except the running flag scripts, and saves load without the mod. If a save has a flag script running (OFF or a jam guard time) and the mod is no longer subscribed, the game asks about a missing Workshop item when loading it: choose the red X (do not subscribe) and the save loads normally.
+Works together with Rail Operations (tested). Nothing is written into your save except the running flag scripts, and saves load without the mod. If a save has a flag script running (OFF or a maximum wait) and the mod is no longer subscribed, the game asks about a missing Workshop item when loading it: choose the red X (do not subscribe) and the save loads normally.
 
 [h3]Important: start the game through the loader, every time[/h3]
 The priority is a native plugin: it runs only when the game is started with TesmioLoader (tesmiolauncher.exe) or Republic Mod Loader. Started with Steam's Play button, the game loads without it: the Scripts buttons are still there, but they do nothing and their notification is empty. Check the bottom-left corner of the main menu: it shows tesmioloader or Republic Mod Loader ACTIVE when a loader is running.
@@ -47,18 +47,18 @@ A Rail Priority mellett mindig a személyvonat megy elsőként:
 [*] mozgó vonatot a mod soha nem állít meg, csak a jelzőnél már várakozót tartja várakozásban.
 [/list]
 
-[b]A tehervonat sokáig várhat.[/b] Ha a vonalon folyamatosan jönnek a személyvonatok, a tehervonat addig vár, amíg rés nem nyílik. Ez szándékos. Ha ugyanaz a személyvonat 60 másodpercig nem mozdul (dugó), a tehervonat mégis elindul. Ez a beragadás elleni idő 30, 60, 90, 120 vagy 180 másodperc lehet: a Beállítások → Szkriptek harmadik gombjával állítható (mentésenként megmarad).
+[b]Maximális várakozás.[/b] A tehervonat legfeljebb 60 másodpercig vár a személyvonatokra, attól számítva, hogy a jelzőnél először visszatartottuk. Utána megkapja a következő szabad blokkot, és egyszer a személyvonatok várnak rá. Az idő 30, 60, 90, 120 vagy 180 másodperc lehet: a Beállítások → Szkriptek harmadik gombjával állítható (mentésenként megmarad).
 
 [h3]Be- és kikapcsolás[/h3]
-A Beállítások → Szkriptek menüben három gomb van: BE, KI és a beragadás elleni idő (minden nyomás lép egyet: 30 → 60 → 90 → 120 → 180 másodperc). A beállítások mentésenként megmaradnak. Ha egy mentésben senki nem nyomta meg a KI gombot, az elsőbbség BE van kapcsolva.
-[b]Jelenleg futó szkriptek[/b] a Szkriptek ablakban a mod kis jelzőszkriptjeit is számolja, amelyek mást nem csinálnak: egyet a KI állapothoz, egyet a választott beragadás elleni időhöz.
+A Beállítások → Szkriptek menüben három gomb van: BE, KI és a tehervonat maximális várakozása (minden nyomás lép egyet: 30 → 60 → 90 → 120 → 180 másodperc). A beállítások mentésenként megmaradnak. Ha egy mentésben senki nem nyomta meg a KI gombot, az elsőbbség BE van kapcsolva.
+[b]Jelenleg futó szkriptek[/b] a Szkriptek ablakban a mod kis jelzőszkriptjeit is számolja, amelyek mást nem csinálnak: egyet a KI állapothoz, egyet a választott maximális várakozáshoz.
 
 [h3]Követelmények[/h3]
 [list]
 [*] Workers & Resources: Soviet Republic 1.1.1.13
 [*] TesmioLoader vagy Republic Mod Loader
 [/list]
-Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó jelzőszkripteken kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek. Ha egy mentésben jelzőszkript fut (KI vagy beragadás elleni idő), és a modra már nem vagy feliratkozva, betöltéskor a játék hiányzó Workshop-elemre figyelmeztet: válaszd a piros X-et (nem iratkozol fel), és a mentés rendben betöltődik.
+Együttműködik a Rail Operations moddal (tesztelve). A mentésbe a futó jelzőszkripteken kívül semmit nem ír, és a mentések a mod nélkül is betöltődnek. Ha egy mentésben jelzőszkript fut (KI vagy maximális várakozás), és a modra már nem vagy feliratkozva, betöltéskor a játék hiányzó Workshop-elemre figyelmeztet: válaszd a piros X-et (nem iratkozol fel), és a mentés rendben betöltődik.
 
 [h3]Fontos: a játékot mindig a loaderrel indítsd[/h3]
 Az elsőbbség natív plugin: csak akkor működik, ha a játékot a TesmioLoaderrel (tesmiolauncher.exe) vagy a Republic Mod Loaderrel indítod. A Steam Play gombjával indítva a játék nélküle töltődik be: a Szkriptek gombjai ott vannak, de nem csinálnak semmit, és az értesítésük üres. A főmenü bal alsó sarkában ellenőrizheted: ha fut a loader, ott tesmioloader vagy Republic Mod Loader ACTIVE áll.

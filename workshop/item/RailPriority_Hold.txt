@@ -1,4 +1,4 @@
-// Rail Priority - button: steps the jam guard 30 -> 60 -> 90 -> 120 -> 180 s
+// Rail Priority - button: steps the maximum wait 30 -> 60 -> 90 -> 120 -> 180 s
 // -> 30 ... and says the new value in the player's language (text ids
 // 1957001 and 1957011..1957015 are served by wrsr_rail_mod.dll).
 // The value is the one RailPriority_Hold<N>Flag.txt that runs, so it is saved

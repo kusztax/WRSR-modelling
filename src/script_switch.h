@@ -23,7 +23,7 @@ bool Init(const TsmHost* host, HMODULE exe);
 // Call from the game thread (the signal hook).
 bool PriorityOffByScript();
 
-// The jam-guard time chosen with the Scripts menu button (30, 60, 90, 120,
+// The maximum wait chosen with the Scripts menu button (30, 60, 90, 120,
 // 180 s: a running RailPriority_Hold<N>Flag script), or 0 when none runs and
 // the ini's max_hold_s applies. Same scan as above.
 int HoldSecondsByScript();
