@@ -29,7 +29,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT/plugins"
 cp workshop/item/*.txt workshop/item/*.png "$OUT/"
 cp workshop/art/previewimage.png "$OUT/previewimage.png"
-cp build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini "$OUT/plugins/"
+cp build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini config/rail_priority.png "$OUT/plugins/"
 
 # The description is one quoted value: it must not contain a double quote
 # (Rail Operations' own description is cut short at one).

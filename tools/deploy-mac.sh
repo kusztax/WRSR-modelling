@@ -21,7 +21,7 @@ cmake --build --preset mingw
 echo "[deploy] plugin -> tesmioloader/plugins"
 # The ini from config/, not build/: the build copies it only when the DLL is
 # relinked, so an ini-only change would not arrive.
-cp -f build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini "$GAME/tesmioloader/plugins/"
+cp -f build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini config/rail_priority.png "$GAME/tesmioloader/plugins/"
 grep '^signal_aspect' "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini" | sed 's/^/[deploy] /'
 
 # The Scripts menu buttons come from the published Workshop item (subscribe

@@ -6,6 +6,7 @@
 #include <wchar.h>
 
 #include "logger.h"
+#include "research.h"
 #include "tesmio_api.h"
 
 namespace wrsr::lang {
@@ -221,14 +222,16 @@ wchar_t* h_getString(void* self, int id)
     case ID_TEXT_OFF: return g_off;
     }
     if (id >= ID_HOLD_FIRST && id < ID_HOLD_FIRST + 5) return g_hold[id - ID_HOLD_FIRST];
+    if (wchar_t* r = research::Text(id, g_current->token)) return r;
     return o_getString(self, id);
 }
 
-template <int M> FILE* h_fopen(const char* p, const char* m) { NoteFile(p); return o_fopen[M](p, m); }
-template <int M> FILE* h_wfopen(const wchar_t* p, const wchar_t* m) { NoteFileW(p); return o_wfopen[M](p, m); }
-template <int M> errno_t h_fopen_s(FILE** f, const char* p, const char* m) { NoteFile(p); return o_fopen_s[M](f, p, m); }
-template <int M> errno_t h_wfopen_s(FILE** f, const wchar_t* p, const wchar_t* m) { NoteFileW(p); return o_wfopen_s[M](f, p, m); }
-int h_readFile(const char* p, char** out, unsigned* size, bool b) { NoteFile(p); return o_readFile(p, out, size, b); }
+// research::Map* may hand the game our extended research.ini instead.
+template <int M> FILE* h_fopen(const char* p, const char* m) { NoteFile(p); return o_fopen[M](research::MapA(p), m); }
+template <int M> FILE* h_wfopen(const wchar_t* p, const wchar_t* m) { NoteFileW(p); return o_wfopen[M](research::MapW(p), m); }
+template <int M> errno_t h_fopen_s(FILE** f, const char* p, const char* m) { NoteFile(p); return o_fopen_s[M](f, research::MapA(p), m); }
+template <int M> errno_t h_wfopen_s(FILE** f, const wchar_t* p, const wchar_t* m) { NoteFileW(p); return o_wfopen_s[M](f, research::MapW(p), m); }
+int h_readFile(const char* p, char** out, unsigned* size, bool b) { NoteFile(p); return o_readFile(research::MapA(p), out, size, b); }
 
 const char kEngine[] = "C3DDLL64.dll";
 const char kStdio[]  = "api-ms-win-crt-stdio-l1-1-0.dll";

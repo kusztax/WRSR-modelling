@@ -24,6 +24,7 @@
 #include "logger.h"
 #include "rail_probe.h"
 #include "signal_priority.h"
+#include "research.h"
 
 using wrsr::Log;
 
@@ -130,7 +131,11 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     hooked |= wrsr::signal_priority::Start(H, g_exe, sc);
 
     // Texts for the Scripts menu notifications, in the game's language.
-    if (sc.priority) hooked |= wrsr::lang::Init(H, g_exe, g_engine);
+    if (sc.priority)
+    {
+        wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0);
+        hooked |= wrsr::lang::Init(H, g_exe, g_engine);
+    }
 
     Log("start done - %s", hooked ? "hooks live (see prio / rail lines above)" : "no game code patched");
     return 0;
