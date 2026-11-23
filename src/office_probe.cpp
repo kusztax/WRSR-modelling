@@ -133,6 +133,25 @@ bool PathProbe()
         }
         if (!found)
         {
+            // The object starts with four std::vector (begin, end, cap) at
+            // +0x08, +0x20, +0x38, +0x50: dump each (up to 0x400 bytes).
+            for (int v = 0; v < 4; ++v)
+            {
+                BYTE* vb = nullptr; BYTE* ve = nullptr;
+                if (!ReadMem(obj + 0x08 + v * 0x18, &vb, 8) || !ReadMem(obj + 0x10 + v * 0x18, &ve, 8) || !vb || ve <= vb) continue;
+                size_t len = (size_t)(ve - vb);
+                size_t show = len < 0x400 ? len : 0x400;
+                Log("office probe: vector %d at obj+0x%02X: %p, %zu bytes (showing %zu)", v, 0x08 + v * 0x18, (void*)vb, len, show);
+                BYTE buf[0x400];
+                if (!ReadMem(vb, buf, show)) continue;
+                for (size_t row = 0; row < show; row += 32)
+                {
+                    char line[120];
+                    int c = 0;
+                    for (size_t j = 0; j < 32 && row + j < show; ++j) c += snprintf(line + c, sizeof(line) - c, "%02X ", buf[row + j]);
+                    Log("office probe   v%d+%03zX %s", v, row, line);
+                }
+            }
             Log("office probe: marker not behind any pointer of the script object; its first 0x200 bytes:");
             BYTE raw[0x200];
             if (ReadMem(obj, raw, sizeof(raw)))
