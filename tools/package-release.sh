@@ -28,6 +28,8 @@ OUT=dist/RailPriority
 rm -rf "$OUT"
 mkdir -p "$OUT/plugins"
 cp workshop/item/*.txt workshop/item/*.png "$OUT/"
+# TEST=1: also the test-only button that marks the research done. Never upload such a build.
+[ "$TEST" = 1 ] && cp workshop/test/*.txt "$OUT/"
 cp workshop/art/previewimage.png "$OUT/previewimage.png"
 cp build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini config/rail_priority.png "$OUT/plugins/"
 
@@ -41,7 +43,9 @@ fi
     printf '%s\n\n' '$ITEM_TYPE WORKSHOP_ITEMTYPE_SCRIPT'
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_On "Rail priority: ON - passenger trains first at signals"'
     printf '%s\n' '$OBJECT_SCRIPT RailPriority_Off "Rail priority: OFF - the game decides at signals"'
-    printf '%s\n\n' '$OBJECT_SCRIPT RailPriority_Hold "Rail priority: freight maximum wait (30/60/90/120/180 s)"'
+    printf '%s\n' '$OBJECT_SCRIPT RailPriority_Hold "Rail priority: freight maximum wait (30/60/90/120/180 s)"'
+    [ "$TEST" = 1 ] && printf '%s\n' '$OBJECT_SCRIPT RailPriority_TestResearch "TEST ONLY: mark Rail priority researched"'
+    printf '\n'
     printf '%s\n\n' '$ITEM_NAME "Rail Priority"'
     printf '$ITEM_DESC "'
     cat workshop/description.bbcode
@@ -72,6 +76,7 @@ if [ -n "$GAME" ] && [ -d "$GAME/media_soviet" ]; then
     cp -R "$OUT/." "$DEST/"
     echo "[package] copied to media_soviet/workshop_wip/$ITEM (ids and visibility kept):"
     grep -E '^\$(ITEM_ID|OWNER_ID|VISIBILITY|ITEM_NAME)' "$DEST/workshopconfig.ini"
+    [ "$TEST" = 1 ] && echo "[package] TEST BUILD - do not upload; run tools/package-release.sh again without TEST=1 first"
     echo "[package] upload it in the game (Workshop -> your items -> the card -> green tick),"
     echo "[package] then run: tools/package-release.sh clean"
 fi

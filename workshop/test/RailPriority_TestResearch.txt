@@ -1,0 +1,17 @@
+// TEST ONLY (never uploaded): marks the Rail priority research done through
+// the scenario instruction, to test the ON button and the watcher without
+// 750 workdays. Packaged only with TEST=1 tools/package-release.sh.
+
+include("SOVIETInstructions.txt");
+
+defineVariable(int, iDone);
+defineVariable(vec3, vWhere);
+
+defineFunction(main, void)
+{
+	Scenario_UnlockResearch("rail_priority");
+	Research_IsCompleted("rail_priority", iDone);
+	if (iDone) { Notification_CreateNewLangIDPic(1957001, 1957004, "RailPriority_On.png", vWhere); }
+	if (!iDone) { Notification_CreateNewLangIDPic(1957001, 1957005, "RailPriority_Off.png", vWhere); }
+	end();
+}
