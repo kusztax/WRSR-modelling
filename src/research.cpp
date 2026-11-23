@@ -187,7 +187,16 @@ DWORD WINAPI ProbeThread(void*)
     const SIZE_T kChunk = 1 << 20;
     BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk + 64, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!chunk) return 0;
-    int hits[5] = {0, 0, 0, 0, 0};
+    int hits[5] = {0, 0, 0, 0, 0}, whits[5] = {0, 0, 0, 0, 0};
+    BYTE wide[5][128];
+    size_t wlen[5];
+    for (int k = 0; k < 5; ++k)
+    {
+        size_t n = strlen(kProbeIdents[k]);
+        for (size_t i = 0; i < n; ++i) { wide[k][2 * i] = (BYTE)kProbeIdents[k][i]; wide[k][2 * i + 1] = 0; }
+        wide[k][2 * n] = wide[k][2 * n + 1] = 0;
+        wlen[k] = 2 * n + 2;
+    }
     MEMORY_BASIC_INFORMATION mi;
     for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
@@ -202,20 +211,32 @@ DWORD WINAPI ProbeThread(void*)
             {
                 const char* id = kProbeIdents[k];
                 size_t len = strlen(id) + 1;   // with its 0
-                if (hits[k] >= 6) continue;
-                for (SIZE_T i = 1; i + len <= got; ++i)
+                for (SIZE_T i = 2; i + wlen[k] <= got; ++i)
                 {
-                    if (chunk[i] != (BYTE)id[0] || memcmp(chunk + i, id, len) != 0) continue;
-                    if (chunk[i - 1] != 0) continue;   // a whole string, not a tail
-                    DumpAround(base + off + i, id);
-                    if (++hits[k] >= 6) break;
+                    if (chunk[i] != (BYTE)id[0]) continue;
+                    if (hits[k] < 6 && memcmp(chunk + i, id, len) == 0 && chunk[i - 1] == 0)
+                    {
+                        char label[96];
+                        snprintf(label, sizeof(label), "%s (ascii)", id);
+                        DumpAround(base + off + i, label);
+                        ++hits[k];
+                    }
+                    else if (whits[k] < 6 && (i & 1) == 0 && memcmp(chunk + i, wide[k], wlen[k]) == 0 &&
+                             !(chunk[i - 2] != 0 && chunk[i - 1] == 0))
+                    {
+                        char label[96];
+                        snprintf(label, sizeof(label), "%s (wide)", id);
+                        DumpAround(base + off + i, label);
+                        ++whits[k];
+                    }
                 }
             }
         }
     }
     VirtualFree(chunk, 0, MEM_RELEASE);
-    Log("probe done: hits %d %d %d %d %d (phone_tapping chemistry_init logistic_optimization "
-        "distribution_office rail_priority)", hits[0], hits[1], hits[2], hits[3], hits[4]);
+    Log("probe done: ascii %d %d %d %d %d, wide %d %d %d %d %d (phone_tapping chemistry_init "
+        "logistic_optimization distribution_office rail_priority)", hits[0], hits[1], hits[2], hits[3],
+        hits[4], whits[0], whits[1], whits[2], whits[3], whits[4]);
     return 0;
 }
 
