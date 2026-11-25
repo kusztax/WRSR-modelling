@@ -10,7 +10,6 @@
 #include "logger.h"
 #include "priority_policy.h"
 #include "script_switch.h"
-#include "spacing_test.h"
 #include "tesmio_api.h"
 
 namespace wrsr::signal_priority {
@@ -600,7 +599,6 @@ void Observe(BYTE* lead, char& answer)
         int hs = script_switch::HoldSecondsByScript();
         g_pcfg.maxHoldMs = (uint32_t)(hs ? hs : g_cfg.maxHoldSec) * 1000u;
     }
-    spacing_test::NoteVehicle(lead);
     Train* t = Find(lead);
     if (t)
     {
