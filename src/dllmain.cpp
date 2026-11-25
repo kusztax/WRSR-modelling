@@ -26,6 +26,7 @@
 #include "signal_priority.h"
 #include "research.h"
 #include "line_probe.h"
+#include "spacing_test.h"
 
 using wrsr::Log;
 
@@ -141,6 +142,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             H->configString(kIni, kSection, "line_lengths", lens, sizeof(lens), "");
             wrsr::line_probe::Start(lens);
         }
+        if (H->configInt(kIni, kSection, "spacing_test", 0)) wrsr::spacing_test::Start();
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
 

@@ -68,7 +68,8 @@ add_library(wrsr_rail_mod SHARED
     src/script_switch.cpp
     src/lang.cpp
     src/research.cpp
-    src/line_probe.cpp)
+    src/line_probe.cpp
+    src/spacing_test.cpp)
 
 target_include_directories(wrsr_rail_mod PRIVATE src third_party/tesmio)
 target_compile_definitions(wrsr_rail_mod PRIVATE
