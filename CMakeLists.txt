@@ -112,7 +112,7 @@ add_library(wrsr_tram_spacing SHARED
 target_include_directories(wrsr_tram_spacing PRIVATE src third_party/tesmio)
 target_compile_definitions(wrsr_tram_spacing PRIVATE
     "WIN32_LEAN_AND_MEAN=" NOMINMAX _WIN32_WINNT=0x0601
-    WRSR_MOD_NAME="wrsr_tram_spacing" WRSR_MOD_VERSION="${TRAM_SPACING_VERSION}")
+    WRSR_MOD_NAME="wrsr_tram_spacing" WRSR_LOG_TAG="tram_spc" WRSR_MOD_VERSION="${TRAM_SPACING_VERSION}")
 target_compile_options(wrsr_tram_spacing PRIVATE
     -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
     -Wno-cast-function-type -fno-strict-aliasing)

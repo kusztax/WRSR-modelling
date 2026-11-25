@@ -15,6 +15,10 @@ wchar_t   g_path[MAX_PATH * 2] = L"";
 #ifndef WRSR_MOD_NAME
 #define WRSR_MOD_NAME "wrsr_rail_mod"
 #endif
+// short tag for the loader's shared log
+#ifndef WRSR_LOG_TAG
+#define WRSR_LOG_TAG "wrsr_rail"
+#endif
 #define WRSR_WIDEN2(x) L##x
 #define WRSR_WIDEN(x) WRSR_WIDEN2(x)
 const wchar_t kLogName[] = WRSR_WIDEN(WRSR_MOD_NAME) L".log";
@@ -139,7 +143,7 @@ void LogV(const char* fmt, va_list ap)
     ReleaseSRWLockExclusive(&g_lock);
 
     // Outside the lock: the host takes its own.
-    if (host) host("wrsr_rail  %s", msg);
+    if (host) host(WRSR_LOG_TAG "  %s", msg);
 }
 
 void Log(const char* fmt, ...)
