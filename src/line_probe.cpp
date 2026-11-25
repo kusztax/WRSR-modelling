@@ -1,212 +1,178 @@
+// line_probe.cpp - TEST ONLY (line_probe = 1). Differential scan with the game
+// PAUSED: every 10 s the whole writable memory is fingerprinted page by page.
+// The log tells the player when to toggle the line's spacing switch and when
+// to keep still; pages that change in every toggle window and never in a
+// still window hold the switch, and their changed bytes are logged.
 #include "line_probe.h"
 
 #include <windows.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 #include "logger.h"
 
 namespace wrsr::line_probe {
 namespace {
 
-constexpr int    kBefore = 0x800, kAfter = 0x800, kSpan = kBefore + kAfter;
-constexpr int    kMaxHits = 96;
-float  g_len[4];
-int    g_nLen = 0;
+constexpr size_t kMaxPages = 1u << 21;   // 8 GiB of 4 KiB pages
+constexpr int    kMaxCand  = 4096;       // pages kept in full (16 MiB)
 
-struct Hit
-{
-    BYTE* at;          // the length value
-    int   which;       // index into g_len; -1 name string, -2 pointer to a name
-    bool  dbl;
-    BYTE  snap[kSpan]; // memory at [at - kBefore, at + kAfter)
-};
-Hit g_hit[kMaxHits];
-int g_nHit = 0;
+struct PageHash { uintptr_t addr; uint64_t hash; };
 
-bool ReadMem(const void* at, void* out, size_t n)
+PageHash* g_prev  = nullptr;   // VirtualAlloc'd: never inside what we scan
+PageHash* g_cur   = nullptr;
+size_t    g_nPrev = 0, g_nCur = 0;
+BYTE*     g_chunk = nullptr;   // 1 MiB read buffer
+
+// Candidates: page address, its content in the "on" and "off" states seen.
+struct Cand { uintptr_t addr; bool alive; int hits; BYTE before[4096]; BYTE after[4096]; };
+Cand* g_cand  = nullptr;
+int   g_nCand = 0;
+
+bool Ours(uintptr_t a)
 {
-    SIZE_T got = 0;
-    return ReadProcessMemory(GetCurrentProcess(), at, out, n, &got) && got == n;
+    auto in = [a](const void* base, size_t len) {
+        return a >= (uintptr_t)base && a < (uintptr_t)base + len; };
+    return in(g_prev, kMaxPages * sizeof(PageHash)) || in(g_cur, kMaxPages * sizeof(PageHash)) ||
+           in(g_chunk, 1 << 20) || in(g_cand, kMaxCand * sizeof(Cand));
 }
 
-void Scan()
+uint64_t Fnv(const BYTE* p, size_t n)
 {
-    const SIZE_T kChunk = 1 << 20;
-    static BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!chunk) return;
+    uint64_t h = 1469598103934665603ull;
+    const uint64_t* q = (const uint64_t*)p;
+    for (size_t i = 0; i < n / 8; ++i) { h ^= q[i]; h *= 1099511628211ull; }
+    return h;
+}
+
+// Fingerprint every committed private writable page into g_cur.
+void Snapshot()
+{
+    g_nCur = 0;
     MEMORY_BASIC_INFORMATION mi;
-    for (BYTE* p = nullptr; g_nHit < 48 && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
-         p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+    NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    uintptr_t stackLo = (uintptr_t)tib->StackLimit, stackHi = (uintptr_t)tib->StackBase;
+    for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
         if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
         if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))) continue;
-        BYTE* base = (BYTE*)mi.BaseAddress;
-        for (SIZE_T off = 0; g_nHit < 48 && off < mi.RegionSize; off += kChunk)
+        uintptr_t base = (uintptr_t)mi.BaseAddress;
+        if (Ours(base) || (base >= stackLo && base < stackHi)) continue;
+        for (SIZE_T off = 0; off < mi.RegionSize; off += 1 << 20)
         {
-            SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
+            SIZE_T want = mi.RegionSize - off < (1u << 20) ? mi.RegionSize - off : (1u << 20);
             SIZE_T got = 0;
-            if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (SIZE_T i = 0; i + 8 <= got && g_nHit < 48; i += 4)
-                for (int w = 0; w < g_nLen; ++w)
-                {
-                    float f;
-                    memcpy(&f, chunk + i, 4);
-                    double d = 0;
-                    if ((i & 7) == 0) memcpy(&d, chunk + i, 8);
-                    bool isF = f > g_len[w] - 0.02f && f < g_len[w] + 0.02f;
-                    bool isD = (i & 7) == 0 && d > g_len[w] - 0.02 && d < g_len[w] + 0.02;
-                    if (!isF && !isD) continue;
-                    Hit& h = g_hit[g_nHit];
-                    h.at = base + off + i;
-                    h.which = w;
-                    h.dbl = isD;
-                    if (!ReadMem(h.at - kBefore, h.snap, kSpan)) continue;
-                    ++g_nHit;
-                    Log("line probe: hit %d - %.2f m (%s) at %p", g_nHit - 1, g_len[w], isD ? "double" : "float", (void*)h.at);
-                }
+            if (!ReadProcessMemory(GetCurrentProcess(), (void*)(base + off), g_chunk, want, &got)) continue;
+            for (SIZE_T pg = 0; pg + 4096 <= got && g_nCur < kMaxPages; pg += 4096)
+                g_cur[g_nCur++] = PageHash{base + off + pg, Fnv(g_chunk + pg, 4096)};
         }
     }
 }
 
-
-// The lines' names, as the game shows them (wide strings): unique to a line,
-// unlike its length. "Kromňová Buszmegálló - Krom..." / "Lenin Ltp. megálló ..(2).. Vas..."
-const wchar_t* const kNames[] = {L"Kromňová Buszmegálló - Krom",
-                                 L"Lenin Ltp. megálló ..(2).. Vas"};
-
-void AddHit(BYTE* at, int which, const char* what)
+// Pages whose fingerprint differs between g_prev and g_cur (both sorted by
+// address); calls f(addr) for each.
+template <class F>
+int Changed(F f)
 {
-    if (g_nHit >= kMaxHits) return;
-    Hit& h = g_hit[g_nHit];
-    h.at = at;
-    h.which = which;
-    h.dbl = false;
-    if (!ReadMem(at - kBefore, h.snap, kSpan)) return;
-    ++g_nHit;
-    Log("line probe: hit %d - %s at %p", g_nHit - 1, what, (void*)at);
-}
-
-// Second pass: the names, and every pointer to a found name.
-void ScanNames()
-{
-    BYTE* found[8];
-    int   nFound = 0;
-    const SIZE_T kChunk = 1 << 20;
-    static BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!chunk) return;
-    for (int pass = 0; pass < 2; ++pass)
+    size_t i = 0, j = 0;
+    int n = 0;
+    while (i < g_nPrev && j < g_nCur)
     {
-        MEMORY_BASIC_INFORMATION mi;
-        for (BYTE* p = nullptr; g_nHit < kMaxHits && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
-             p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+        if (g_prev[i].addr < g_cur[j].addr) ++i;
+        else if (g_prev[i].addr > g_cur[j].addr) ++j;
+        else
         {
-            if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
-            if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))) continue;
-            BYTE* base = (BYTE*)mi.BaseAddress;
-            for (SIZE_T off = 0; g_nHit < kMaxHits && off < mi.RegionSize; off += kChunk)
-            {
-                SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
-                SIZE_T got = 0;
-                if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-                if (pass == 0)
-                {
-                    for (const wchar_t* nm : kNames)
-                    {
-                        size_t len = wcslen(nm) * 2;
-                        for (SIZE_T i = 0; i + len <= got && nFound < 8; i += 2)
-                            if (chunk[i] == (BYTE)nm[0] && memcmp(chunk + i, nm, len) == 0)
-                            {
-                                found[nFound++] = base + off + i;
-                                AddHit(base + off + i, -1, nm == kNames[0] ? "bus line name" : "tram line name");
-                            }
-                    }
-                }
-                else
-                {
-                    for (SIZE_T i = 0; i + 8 <= got; i += 8)
-                    {
-                        BYTE* q;
-                        memcpy(&q, chunk + i, 8);
-                        for (int k = 0; k < nFound; ++k)
-                            if (q == found[k] && base + off + i != (BYTE*)&found[k])
-                                AddHit(base + off + i, -2, "pointer to a line name");
-                    }
-                }
-            }
+            if (g_prev[i].hash != g_cur[j].hash) { ++n; f(g_cur[j].addr); }
+            ++i; ++j;
         }
-        if (!nFound) { Log("line probe: line names not found in memory"); return; }
     }
+    return n;
 }
+
+bool ReadPage(uintptr_t a, BYTE* out) { SIZE_T got = 0; return ReadProcessMemory(GetCurrentProcess(), (void*)a, out, 4096, &got) && got == 4096; }
 
 DWORD WINAPI Thread(void*)
 {
-    Sleep(15000);
-    for (int round = 0;; ++round)
+    Sleep(20000);
+    g_prev  = (PageHash*)VirtualAlloc(nullptr, kMaxPages * sizeof(PageHash), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    g_cur   = (PageHash*)VirtualAlloc(nullptr, kMaxPages * sizeof(PageHash), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    g_chunk = (BYTE*)VirtualAlloc(nullptr, 1 << 20, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    g_cand  = (Cand*)VirtualAlloc(nullptr, kMaxCand * sizeof(Cand), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!g_prev || !g_cur || !g_chunk || !g_cand) { Log("line probe: out of memory"); return 0; }
+
+    Log("line probe: PAUSE THE GAME now and open the bus line's window. Starting in 20 s.");
+    Sleep(20000);
+    Snapshot();
+    Log("line probe: baseline %zu pages", g_nCur);
+
+    // still, still, TOGGLE, still, TOGGLE, still, TOGGLE, still
+    const bool toggle[] = {false, false, true, false, true, false, true, false};
+    const int  nSteps   = (int)(sizeof(toggle) / sizeof(toggle[0]));
+    for (int s = 0; s < nSteps; ++s)
     {
-        if (g_nHit == 0)
+        memcpy(g_prev, g_cur, g_nCur * sizeof(PageHash));
+        g_nPrev = g_nCur;
+        if (toggle[s]) Log("line probe: step %d/%d - CLICK THE SPACING SWITCH ONCE, NOW (you have 10 s)", s + 1, nSteps);
+        else           Log("line probe: step %d/%d - do nothing for 10 s (game paused, mouse still)", s + 1, nSteps);
+        Sleep(10000);
+        Snapshot();
+
+        if (toggle[s] && g_nCand == 0)
         {
-            Scan();
-            ScanNames();
-            if (g_nHit == 0)
-            {
-                if (round % 6 == 0) Log("line probe: no line of that length yet (load the save)");
-                Sleep(10000);
-                continue;
-            }
-            Log("line probe: %d hits - now toggle the spacing switch a few times, ~20 s apart", g_nHit);
+            // first toggle: every changed page is a candidate
+            int n = Changed([](uintptr_t a) {
+                if (g_nCand >= kMaxCand) return;
+                Cand& c = g_cand[g_nCand];
+                c.addr = a; c.alive = true; c.hits = 1;
+                if (ReadPage(a, c.after)) ++g_nCand;
+            });
+            Log("line probe: step %d: %d pages changed, %d kept as candidates", s + 1, n, g_nCand);
+            // "before" = the state before this click: not known; filled at the next toggle
+            for (int k = 0; k < g_nCand; ++k) memcpy(g_cand[k].before, g_cand[k].after, 4096);
+            continue;
         }
-        Sleep(5000);
-        int lines = 0;
-        for (int k = 0; k < g_nHit; ++k)
+        // later steps: a toggle must change the candidate, a still step must not
+        int alive = 0, n = Changed([](uintptr_t) {});
+        for (int k = 0; k < g_nCand; ++k)
         {
-            Hit& h = g_hit[k];
-            BYTE now[kSpan];
-            if (!ReadMem(h.at - kBefore, now, kSpan)) continue;
-            for (int i = 0; i < kSpan; ++i)
-            {
-                if (now[i] == h.snap[i]) continue;
-                // one line per changed 4-byte word
-                int w = i & ~3;
-                if (lines < 60)
-                {
-                    unsigned o = 0, n = 0;
-                    memcpy(&o, h.snap + w, 4);
-                    memcpy(&n, now + w, 4);
-                    float fo, fn;
-                    memcpy(&fo, &o, 4);
-                    memcpy(&fn, &n, 4);
-                    Log("line probe: hit %d %c0x%03X: %08X -> %08X (int %d -> %d, float %g -> %g)", k,
-                        w < kBefore ? '-' : '+', w < kBefore ? kBefore - w : w - kBefore, o, n, (int)o, (int)n, fo, fn);
-                }
-                ++lines;
-                i = w + 3;
-            }
-            memcpy(h.snap, now, kSpan);
+            Cand& c = g_cand[k];
+            if (!c.alive) continue;
+            BYTE now[4096];
+            if (!ReadPage(c.addr, now)) { c.alive = false; continue; }
+            bool diff = memcmp(now, c.after, 4096) != 0;
+            if (toggle[s] != diff) { c.alive = false; continue; }
+            if (toggle[s]) { memcpy(c.before, c.after, 4096); memcpy(c.after, now, 4096); ++c.hits; }
+            ++alive;
         }
-        if (lines > 60) Log("line probe: ... %d changes in all this round", lines);
+        Log("line probe: step %d: %d pages changed in all; %d candidates left", s + 1, n, alive);
     }
+
+    // Report: the bytes that differ between the last two toggle states.
+    int shown = 0;
+    for (int k = 0; k < g_nCand && shown < 40; ++k)
+    {
+        Cand& c = g_cand[k];
+        if (!c.alive) continue;
+        for (int i = 0; i < 4096 && shown < 40; ++i)
+            if (c.before[i] != c.after[i])
+            {
+                ++shown;
+                Log("line probe: RESULT page %p +0x%03X: %02X -> %02X  (byte at %p)", (void*)c.addr, i, c.before[i],
+                    c.after[i], (void*)(c.addr + i));
+            }
+    }
+    Log("line probe: done (%d result bytes). You can unpause.", shown);
     return 0;
 }
 
 }  // namespace
 
-void Start(const char* csv)
+void Start(const char*)
 {
-    char buf[128];
-    strncpy(buf, csv, sizeof(buf) - 1);
-    buf[sizeof(buf) - 1] = 0;
-    for (char* t = strtok(buf, ", ;"); t && g_nLen < 4; t = strtok(nullptr, ", ;"))
-    {
-        float v = (float)atof(t);
-        if (v > 1.0f) g_len[g_nLen++] = v;
-    }
-    if (!g_nLen) { Log("line probe: no line_lengths in the ini - off"); return; }
     HANDLE h = CreateThread(nullptr, 0, Thread, nullptr, 0, nullptr);
     if (h) CloseHandle(h);
-    Log("line probe on: looking for lines of %d length(s), first %.2f m", g_nLen, g_len[0]);
+    Log("line probe on: load the save; then follow the 'line probe:' lines in this log");
 }
 
 }  // namespace wrsr::line_probe
