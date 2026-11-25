@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(wrsr_rail_mod VERSION 1.3.0 LANGUAGES C CXX)
+project(wrsr_rail_mod VERSION 1.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,7 +68,6 @@ add_library(wrsr_rail_mod SHARED
     src/script_switch.cpp
     src/lang.cpp
     src/research.cpp
-    src/line_probe.cpp
     src/line_spacing.cpp)
 
 target_include_directories(wrsr_rail_mod PRIVATE src third_party/tesmio)

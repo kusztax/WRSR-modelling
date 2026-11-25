@@ -1,5 +1,5 @@
 [h1]Rail Priority[/h1]
-Passenger trains go first at signals. / A személyvonatok elsőbbséget kapnak a jelzőknél.
+Passenger trains go first at signals, and tram lines get line spacing. / A személyvonatok elsőbbséget kapnak a jelzőknél, a villamosvonalak pedig sortávolságot.
 
 [h2]English[/h2]
 In the base game, when a block frees up and a passenger train and a freight train wait for it at two different signals, both get green in the same moment and race for it. The freight train usually wins, and the passenger train stops again a few metres past its signal.
@@ -15,13 +15,17 @@ With Rail Priority the passenger train always goes first:
 
 [b]Maximum wait.[/b] A freight train waits for passenger trains at most 60 seconds, counted from the first time it was held at that signal. Then it gets the next free block, and the passenger trains wait for it once. The maximum wait can be 30, 60, 90, 120 or 180 seconds: set it with the third button in Options → Scripts (kept in each save).
 
+[h3]Line spacing for trams and railcars (new in 1.4, game 1.2)[/h3]
+Game 1.2 has line spacing, but only for road lines. With this mod the same switch appears in the line window of tram lines and railcar lines (every vehicle on the line carries its own passengers on rails). It is the game's own spacing: a vehicle that gets too close to the one ahead slows down until the gap evens out. Switch it per line; it is kept in the save. Lines with locomotive-hauled trains do not get it. To turn the feature off: line_spacing = 0 in wrsr_rail_mod.ini.
+Saves load without the mod too: then the tram lines simply run without spacing, and with the mod back their switch is on again.
+
 [h3]Research, switching it on and off[/h3]
 Since 1.2 the priority has to be researched first: [b]Rail priority[/b] at the party university, after Logistic optimization (750). Then press ON in Options → Scripts. Pressed before the research is done, ON tells you so and switches the priority on by itself the moment the research is finished. OFF switches it off. The third button sets the freight maximum wait (each press steps 30 → 60 → 90 → 120 → 180 seconds). The choices are kept in each save. [b]Saves from 1.0 / 1.1 start with the priority OFF[/b] until it is researched and switched on.
 [b]Running scripts[/b] in the Scripts window counts the mod's small flag scripts, which do nothing else: one while the priority is ON (or waits for the research), one for a chosen maximum wait.
 
 [h3]Requirements[/h3]
 [list]
-[*] Workers & Resources: Soviet Republic 1.1.1.13 or 1.2.0.8
+[*] Workers & Resources: Soviet Republic 1.1.1.13 or 1.2.0.8 (line spacing: 1.2.0.8 only)
 [*] TesmioLoader or Republic Mod Loader
 [/list]
 [b]Game 1.2:[/b] until TesmioLoader supports it, it refuses to start on 1.2. Set version_check = 0 in tesmioloader/tesmioloader.ini (at your own risk: other plugins may not be ready for 1.2). Rail Priority itself checks everything it needs and switches itself off if something does not match.
@@ -52,13 +56,17 @@ A Rail Priority mellett mindig a személyvonat megy elsőként:
 
 [b]Maximális várakozás.[/b] A tehervonat legfeljebb 60 másodpercig vár a személyvonatokra, attól számítva, hogy a jelzőnél először visszatartottuk. Utána megkapja a következő szabad blokkot, és egyszer a személyvonatok várnak rá. Az idő 30, 60, 90, 120 vagy 180 másodperc lehet: a Beállítások → Szkriptek harmadik gombjával állítható (mentésenként megmarad).
 
+[h3]Sortávolság villamosra és motorkocsira (új az 1.4-ben, 1.2-es játék)[/h3]
+Az 1.2-es játékban van sortávolság, de csak közúti vonalakon. A mod mellett ugyanez a kapcsoló megjelenik a villamosvonalak és a motorkocsi-vonalak ablakában (ahol a vonal minden járműve maga viszi az utast, sínen). Ez a játék saját sortávolsága: az a jármű, amelyik túl közel ér az előtte haladóhoz, lelassít, amíg a távolság ki nem egyenlítődik. Vonalanként kapcsolható, és a mentésben megmarad. Mozdonyos vonatok vonalán nem jelenik meg. A funkció kikapcsolása: line_spacing = 0 a wrsr_rail_mod.ini fájlban.
+A mentések a mod nélkül is betöltődnek: ilyenkor a villamosvonalak egyszerűen sortávolság nélkül mennek, a moddal pedig újra bekapcsolva látod őket.
+
 [h3]Kutatás, be- és kikapcsolás[/h3]
 Az 1.2 óta az elsőbbséget előbb ki kell kutatni: [b]Vasúti elsőbbség[/b] a pártegyetemen, a Logistic optimization után (750). Utána nyomd meg a BE gombot a Beállítások → Szkriptek menüben. Ha a kutatás előtt nyomod meg, a BE gomb jelzi, hogy még nincs kész, és a kutatás befejezésekor magától bekapcsol. A KI gomb kikapcsolja. A harmadik gomb a tehervonat maximális várakozása (minden nyomás lép egyet: 30 → 60 → 90 → 120 → 180 másodperc). A beállítások mentésenként megmaradnak. [b]Az 1.0 / 1.1 mentésekben az elsőbbség KI van kapcsolva[/b], amíg ki nem kutatod és be nem kapcsolod.
 [b]Jelenleg futó szkriptek[/b] a Szkriptek ablakban a mod kis jelzőszkriptjeit is számolja, amelyek mást nem csinálnak: egyet, amíg az elsőbbség BE van (vagy a kutatásra vár), egyet a választott maximális várakozáshoz.
 
 [h3]Követelmények[/h3]
 [list]
-[*] Workers & Resources: Soviet Republic 1.1.1.13 vagy 1.2.0.8
+[*] Workers & Resources: Soviet Republic 1.1.1.13 vagy 1.2.0.8 (sortávolság: csak 1.2.0.8)
 [*] TesmioLoader vagy Republic Mod Loader
 [/list]
 [b]1.2-es játék:[/b] amíg a TesmioLoader nem támogatja, 1.2-n nem indul el. Állítsd be: version_check = 0 a tesmioloader/tesmioloader.ini fájlban (saját felelősségre: más pluginok még nem biztos, hogy készen állnak az 1.2-re). A Rail Priority maga mindent ellenőriz, amire szüksége van, és kikapcsolja magát, ha valami nem egyezik.
