@@ -46,9 +46,31 @@ uint64_t Fnv(const BYTE* p, size_t n)
     return h;
 }
 
+// Thread stacks (any allocation holding a guard page): never candidates,
+// never written. The first run wrote into the game's main stack and crashed it.
+uintptr_t g_stackBase[256];
+int       g_nStack = 0;
+
+void FindStacks()
+{
+    g_nStack = 0;
+    MEMORY_BASIC_INFORMATION mi;
+    for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+        if (mi.State == MEM_COMMIT && (mi.Protect & PAGE_GUARD) && g_nStack < 256)
+            g_stackBase[g_nStack++] = (uintptr_t)mi.AllocationBase;
+}
+
+bool IsStack(const MEMORY_BASIC_INFORMATION& mi)
+{
+    for (int i = 0; i < g_nStack; ++i)
+        if ((uintptr_t)mi.AllocationBase == g_stackBase[i]) return true;
+    return false;
+}
+
 // Fingerprint every committed private writable page into g_cur.
 void Snapshot()
 {
+    FindStacks();
     g_nCur = 0;
     MEMORY_BASIC_INFORMATION mi;
     NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
@@ -58,7 +80,7 @@ void Snapshot()
         if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
         if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))) continue;
         uintptr_t base = (uintptr_t)mi.BaseAddress;
-        if (Ours(base) || (base >= stackLo && base < stackHi)) continue;
+        if (Ours(base) || (base >= stackLo && base < stackHi) || IsStack(mi)) continue;
         for (SIZE_T off = 0; off < mi.RegionSize; off += 1 << 20)
         {
             SIZE_T want = mi.RegionSize - off < (1u << 20) ? mi.RegionSize - off : (1u << 20);
@@ -185,38 +207,44 @@ DWORD WINAPI Thread(void*)
 
     // Persistent (the line) or the window's? Close the window, flip the
     // flags ourselves, reopen: if the box shows the other state, it is the line.
-    Log("line probe: now CLOSE the bus line's window (stay paused). In 20 s the probe checks and flips the flag(s).");
+    Log("line probe: now CLOSE the bus line's window (stay paused). In 20 s the probe checks which flags survive.");
     Sleep(20000);
     // what survives the window closing belongs to the line, not to the window
+    // Game 1.2 vehicle layout: type at +0x1748, category at type+0x2B8,
+    // transport class at type+0x8650 (see game_offsets.h).
+    auto vehicleAt = [](uintptr_t base, int* cat, int* cls) -> bool {
+        uintptr_t type = 0;
+        SIZE_T got = 0;
+        if (!ReadProcessMemory(GetCurrentProcess(), (void*)(base + 0x1748), &type, 8, &got)) return false;
+        if (type < 0x10000 || (type & 7)) return false;
+        if (!ReadProcessMemory(GetCurrentProcess(), (void*)(type + 0x2B8), cat, 4, &got)) return false;
+        if (!ReadProcessMemory(GetCurrentProcess(), (void*)(type + 0x8650), cls, 4, &got)) return false;
+        return *cat >= 1 && *cat <= 12 && *cls >= 0 && *cls <= 40;
+    };
     int kept = 0;
     for (int k = 0; k < nFlips; ++k)
     {
         BYTE now = 0;
         SIZE_T got = 0;
         bool same = ReadProcessMemory(GetCurrentProcess(), flips[k].at, &now, 1, &got) && now == flips[k].a;
-        Log("line probe: after closing: %p is %02X - %s", (void*)flips[k].at, now, same ? "KEPT (the line?)" : "gone (the window)");
-        if (same) ++kept;
-    }
-    Log("line probe: %d flag(s) survived the window closing", kept);
-    int wrote = 0;
-    for (int k = 0; k < nFlips; ++k)
-    {
-        BYTE now = 0;
-        SIZE_T got = 0;
-        if (!ReadProcessMemory(GetCurrentProcess(), flips[k].at, &now, 1, &got) || now != flips[k].a)
+        if (!same) continue;
+        ++kept;
+        // inside a vehicle? try every 8-aligned start up to 0x2000 back
+        char where[160] = "";
+        int  found = 0, len = 0;
+        for (uintptr_t off = 0; off <= 0x2000 && found < 3; off += 4)
         {
-            Log("line probe: %p is %02X now (not %02X) - left alone (memory reused?)", (void*)flips[k].at, now, flips[k].a);
-            continue;
+            uintptr_t base = (uintptr_t)flips[k].at - off;
+            if (base & 7) continue;
+            int cat = 0, cls = 0;
+            if (!vehicleAt(base, &cat, &cls)) continue;
+            ++found;
+            len += snprintf(where + len, sizeof(where) - len, " vehicle+0x%X (cat %d, class %d)", (unsigned)off, cat, cls);
         }
-        SIZE_T put = 0;
-        if (WriteProcessMemory(GetCurrentProcess(), flips[k].at, &flips[k].b, 1, &put) && put == 1)
-        {
-            ++wrote;
-            Log("line probe: FLIPPED %p %02X -> %02X", (void*)flips[k].at, flips[k].a, flips[k].b);
-        }
+        Log("line probe: KEPT %p  %02X/%02X/%02X%s", (void*)flips[k].at, flips[k].a, flips[k].b, flips[k].a,
+            found ? where : "  (not inside a vehicle)");
     }
-    Log("line probe: %d flag(s) flipped. Now OPEN the bus line's window again: is the spacing box in the OTHER state than "
-        "when you closed it? Then unpause and watch the buses. Done.", wrote);
+    Log("line probe: %d flag(s) survived the window closing. Nothing was written. Done - you can unpause.", kept);
     return 0;
 }
 
