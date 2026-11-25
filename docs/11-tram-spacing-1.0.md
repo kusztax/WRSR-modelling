@@ -25,7 +25,7 @@ A teszt- és feltáró kód (`line_probe`, `spacing_test`) törölve.
 5. [x] Buszvonal ablaka változatlanul működik.
 6. [x] Motorkocsi-vonal (Komarek): a kapcsoló megjelenik, működik.
 7. [x] Külön DLL-ként, a Rail Priority mellett betöltve (helyi példány).
-8. [ ] Workshopból (feliratkozva, helyi DLL nélkül) betöltve – nem ellenőrzött.
+8. [x] Workshopból (feliratkozva, helyi DLL nélkül) betöltve: `from ...\3845880902\plugins\wrsr_tram_spacing.dll`.
 
 ## Workshop
 
