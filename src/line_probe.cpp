@@ -244,7 +244,64 @@ DWORD WINAPI Thread(void*)
         Log("line probe: KEPT %p  %02X/%02X/%02X%s", (void*)flips[k].at, flips[k].a, flips[k].b, flips[k].a,
             found ? where : "  (not inside a vehicle)");
     }
-    Log("line probe: %d flag(s) survived the window closing. Nothing was written. Done - you can unpause.", kept);
+    Log("line probe: %d flag(s) survived the window closing.", kept);
+
+    // The spacing switch is vehicle+0x658 (one per vehicle of the line). Learn
+    // the vehicle class's vtable from those vehicles, then census every object
+    // with that vtable: category, transport class, spacing flag. No writes.
+    uintptr_t exe = (uintptr_t)GetModuleHandleA(nullptr);
+    uintptr_t vt = 0;
+    for (int k = 0; k < nFlips && !vt; ++k)
+    {
+        uintptr_t base = (uintptr_t)flips[k].at - 0x658;
+        int cat = 0, cls = 0;
+        SIZE_T got = 0;
+        uintptr_t q = 0;
+        if (!vehicleAt(base, &cat, &cls)) continue;
+        if (ReadProcessMemory(GetCurrentProcess(), (void*)base, &q, 8, &got) && q > exe && q < exe + 0x2000000) vt = q;
+    }
+    if (!vt) { Log("line probe: no vehicle with the flag at +0x658 - done, you can unpause."); return 0; }
+    Log("line probe: vehicle vtable at exe+0x%llX", (unsigned long long)(vt - exe));
+
+    struct Bucket { int cat, cls, flag0, flag1, other; uintptr_t sample; };
+    static Bucket b[64];
+    int nb = 0, total = 0;
+    MEMORY_BASIC_INFORMATION mi;
+    for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+    {
+        if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
+        if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) || IsStack(mi)) continue;
+        uintptr_t base = (uintptr_t)mi.BaseAddress;
+        if (Ours(base)) continue;
+        for (SIZE_T off = 0; off < mi.RegionSize; off += 1 << 20)
+        {
+            SIZE_T want = mi.RegionSize - off < (1u << 20) ? mi.RegionSize - off : (1u << 20);
+            SIZE_T got = 0;
+            if (!ReadProcessMemory(GetCurrentProcess(), (void*)(base + off), g_chunk, want, &got)) continue;
+            for (SIZE_T i = 0; i + 8 <= got; i += 8)
+            {
+                uintptr_t q;
+                memcpy(&q, g_chunk + i, 8);
+                if (q != vt) continue;
+                uintptr_t v = base + off + i;
+                int cat = 0, cls = 0;
+                if (!vehicleAt(v, &cat, &cls)) continue;
+                BYTE f = 0xFF;
+                SIZE_T g2 = 0;
+                ReadProcessMemory(GetCurrentProcess(), (void*)(v + 0x658), &f, 1, &g2);
+                ++total;
+                int j = 0;
+                while (j < nb && (b[j].cat != cat || b[j].cls != cls)) ++j;
+                if (j == nb && nb < 64) b[nb++] = Bucket{cat, cls, 0, 0, 0, v};
+                if (j < nb) { if (f == 0) ++b[j].flag0; else if (f == 1) ++b[j].flag1; else ++b[j].other; }
+            }
+        }
+    }
+    Log("line probe: %d vehicles with that vtable:", total);
+    for (int j = 0; j < nb; ++j)
+        Log("line probe:   category %d, transport class %d: %d with spacing 0, %d with 1, %d other (e.g. %p)",
+            b[j].cat, b[j].cls, b[j].flag0, b[j].flag1, b[j].other, (void*)b[j].sample);
+    Log("line probe: nothing was written. Done - you can unpause.");
     return 0;
 }
 
