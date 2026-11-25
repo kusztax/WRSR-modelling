@@ -16,7 +16,7 @@ namespace wrsr::line_probe {
 namespace {
 
 constexpr size_t kMaxPages = 1u << 21;   // 8 GiB of 4 KiB pages
-constexpr int    kMaxCand  = 4096;       // pages kept in full (16 MiB)
+constexpr int    kMaxCand  = 2048;       // pages kept in full
 
 struct PageHash { uintptr_t addr; uint64_t hash; };
 
@@ -26,7 +26,7 @@ size_t    g_nPrev = 0, g_nCur = 0;
 BYTE*     g_chunk = nullptr;   // 1 MiB read buffer
 
 // Candidates: page address, its content in the "on" and "off" states seen.
-struct Cand { uintptr_t addr; bool alive; int hits; BYTE before[4096]; BYTE after[4096]; };
+struct Cand { uintptr_t addr; bool alive; int hits; BYTE before[4096]; BYTE after[4096]; BYTE t[3][4096]; };
 Cand* g_cand  = nullptr;
 int   g_nCand = 0;
 
@@ -101,8 +101,13 @@ DWORD WINAPI Thread(void*)
     g_cand  = (Cand*)VirtualAlloc(nullptr, kMaxCand * sizeof(Cand), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!g_prev || !g_cur || !g_chunk || !g_cand) { Log("line probe: out of memory"); return 0; }
 
-    Log("line probe: PAUSE THE GAME now and open the bus line's window. Starting in 20 s.");
-    Sleep(20000);
+    Log("line probe: load the save, PAUSE the game, open the bus line's window. The scan starts in 60 s.");
+    for (int left = 45; left > 0; left -= 15)
+    {
+        Sleep(15000);
+        Log("line probe: ... %d s left (game paused, bus line window open?)", left);
+    }
+    Sleep(15000);
     Snapshot();
     Log("line probe: baseline %zu pages", g_nCur);
 
@@ -125,7 +130,7 @@ DWORD WINAPI Thread(void*)
                 if (g_nCand >= kMaxCand) return;
                 Cand& c = g_cand[g_nCand];
                 c.addr = a; c.alive = true; c.hits = 1;
-                if (ReadPage(a, c.after)) ++g_nCand;
+                if (ReadPage(a, c.after)) { memcpy(c.t[0], c.after, 4096); ++g_nCand; }
             });
             Log("line probe: step %d: %d pages changed, %d kept as candidates", s + 1, n, g_nCand);
             // "before" = the state before this click: not known; filled at the next toggle
@@ -142,27 +147,67 @@ DWORD WINAPI Thread(void*)
             if (!ReadPage(c.addr, now)) { c.alive = false; continue; }
             bool diff = memcmp(now, c.after, 4096) != 0;
             if (toggle[s] != diff) { c.alive = false; continue; }
-            if (toggle[s]) { memcpy(c.before, c.after, 4096); memcpy(c.after, now, 4096); ++c.hits; }
+            if (toggle[s])
+            {
+                memcpy(c.before, c.after, 4096);
+                memcpy(c.after, now, 4096);
+                if (c.hits < 3) memcpy(c.t[c.hits], now, 4096);
+                ++c.hits;
+            }
             ++alive;
         }
         Log("line probe: step %d: %d pages changed in all; %d candidates left", s + 1, n, alive);
     }
 
-    // Report: the bytes that differ between the last two toggle states.
-    int shown = 0;
-    for (int k = 0; k < g_nCand && shown < 40; ++k)
+    // Report: bytes that alternate with the clicks (state after click 1 ==
+    // after click 3 != after click 2) and never move while still.
+    struct Flip { BYTE* at; BYTE a, b; };
+    static Flip flips[256];
+    int nFlips = 0, shown = 0;
+    for (int k = 0; k < g_nCand; ++k)
     {
         Cand& c = g_cand[k];
-        if (!c.alive) continue;
-        for (int i = 0; i < 4096 && shown < 40; ++i)
-            if (c.before[i] != c.after[i])
+        if (!c.alive || c.hits < 3) continue;
+        for (int i = 0; i < 4096; ++i)
+        {
+            BYTE a = c.t[0][i], b = c.t[1][i], d = c.t[2][i];
+            if (a != d || a == b) continue;
+            bool flag = (a <= 1 && b <= 1);
+            if (shown < 80)
             {
                 ++shown;
-                Log("line probe: RESULT page %p +0x%03X: %02X -> %02X  (byte at %p)", (void*)c.addr, i, c.before[i],
-                    c.after[i], (void*)(c.addr + i));
+                Log("line probe: RESULT %p: %02X / %02X / %02X after clicks 1/2/3%s", (void*)(c.addr + i), a, b, d,
+                    flag ? "   <-- 0/1 FLAG" : "");
             }
+            if (flag && nFlips < 256) flips[nFlips++] = Flip{(BYTE*)(c.addr + i), a, b};
+        }
     }
-    Log("line probe: done (%d result bytes). You can unpause.", shown);
+    Log("line probe: %d alternating bytes, %d of them 0/1 flags", shown, nFlips);
+    if (!nFlips) { Log("line probe: no 0/1 flag - done. You can unpause."); return 0; }
+
+    // Persistent (the line) or the window's? Close the window, flip the
+    // flags ourselves, reopen: if the box shows the other state, it is the line.
+    Log("line probe: now CLOSE the bus line's window (stay paused). In 20 s the probe flips the flag(s) itself.");
+    Sleep(20000);
+    int wrote = 0;
+    for (int k = 0; k < nFlips; ++k)
+    {
+        BYTE now = 0;
+        SIZE_T got = 0;
+        if (!ReadProcessMemory(GetCurrentProcess(), flips[k].at, &now, 1, &got) || now != flips[k].a)
+        {
+            Log("line probe: %p is %02X now (not %02X) - left alone (memory reused?)", (void*)flips[k].at, now, flips[k].a);
+            continue;
+        }
+        SIZE_T put = 0;
+        if (WriteProcessMemory(GetCurrentProcess(), flips[k].at, &flips[k].b, 1, &put) && put == 1)
+        {
+            ++wrote;
+            Log("line probe: FLIPPED %p %02X -> %02X", (void*)flips[k].at, flips[k].a, flips[k].b);
+        }
+    }
+    Log("line probe: %d flag(s) flipped. Now OPEN the bus line's window again: is the spacing box in the OTHER state than "
+        "when you closed it? Then unpause and watch the buses. Done.", wrote);
     return 0;
 }
 
