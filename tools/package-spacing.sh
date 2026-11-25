@@ -11,7 +11,7 @@
 # writes $ITEM_ID / $OWNER_ID into its workshopconfig.ini. `clean` then prints
 # that id: put it into ITEM below (or pass SPACING_ITEM=<id>); from then on the
 # project folder is workshop_wip/<id>, recreated with the ids when missing.
-ITEM=${SPACING_ITEM:-0}
+ITEM=${SPACING_ITEM:-3845880902}
 FIRST=TramRailcarSpacing
 
 if [ -f "$HOME/wrsr-env.sh" ]; then . "$HOME/wrsr-env.sh"; fi
@@ -59,6 +59,8 @@ ls -R "$OUT"
 
 if [ -n "$GAME" ] && [ -d "$GAME/media_soviet" ]; then
     DEST="$GAME/media_soviet/workshop_wip/$DIR"
+    # the pre-id project folder of the first upload, if still there
+    [ "$ITEM" != 0 ] && rm -rf "$GAME/media_soviet/workshop_wip/$FIRST"
     mkdir -p "$DEST"
     if [ "$ITEM" != 0 ]; then
         if [ ! -f "$DEST/workshopconfig.ini" ]; then
