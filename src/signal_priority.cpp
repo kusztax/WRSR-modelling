@@ -220,6 +220,71 @@ bool IsPassengerTrain(BYTE* lead)
     return false;
 }
 
+
+// ---- layout probe (census on): game updates move vehicle fields. For a new
+// train, find which pointer field of the vehicle leads to its type (the lead
+// a locomotive, category 4; every car 3 or 5), trying type-category offsets
+// around the known one too, and dump the types' bytes around the transport
+// class so the passenger value can be read off.
+bool ReadI(BYTE* p, uintptr_t off, int& v) { return Read(p, off, v); }
+
+void ProbeLayout(BYTE* lead, int id)
+{
+    static int probes = 0;
+    if (probes >= 6) return;
+    ++probes;
+    BYTE** b = nullptr;
+    BYTE** e = nullptr;
+    BYTE*  units[16];
+    int    n = 0;
+    if (Read(lead, V_WAGON_VEC, b) && Read(lead, V_WAGON_VEC + 8, e) && b && e > b && e - b <= 512 &&
+        Readable(b, (size_t)(e - b) * sizeof(BYTE*)))
+        for (BYTE** p = b; p != e && n < 16; ++p) if (*p && *p != lead) units[n++] = *p;
+    Log("probe train #%d lead %p: %d other units in the consist vector (+0x%X)", id, (void*)lead, n, (unsigned)V_WAGON_VEC);
+    int found = 0;
+    for (uintptr_t k = 0x1400; k < 0x1E00 && found < 6; k += 8)
+        for (uintptr_t c = 0x240; c < 0x300 && found < 6; c += 4)
+        {
+            BYTE* t = nullptr;
+            int   cat = 0;
+            if (!Read(lead, k, t) || !t || ((uintptr_t)t & 7) || !ReadI(t, c, cat) || cat != CAT_LOCO) continue;
+            bool ok = n > 0;
+            for (int i = 0; i < n && ok; ++i)
+            {
+                BYTE* wt = nullptr;
+                int   wc = 0;
+                ok = Read(units[i], k, wt) && wt && ReadI(wt, c, wc) && (wc == CAT_WAGON || wc == CAT_SERVICE);
+            }
+            if (!ok) continue;
+            ++found;
+            Log("probe   type at vehicle+0x%X, category at type+0x%X (known: +0x%X / +0x%X)", (unsigned)k, (unsigned)c,
+                (unsigned)V_TYPE, (unsigned)T_CATEGORY);
+            if (found > 1) continue;
+            // the transport class: dump ints of the lead's and two cars' types
+            BYTE* types[3] = {nullptr, nullptr, nullptr};
+            Read(lead, k, types[0]);
+            if (n > 0) Read(units[0], k, types[1]);
+            if (n > 1) Read(units[n - 1], k, types[2]);
+            for (int u = 0; u < 3; ++u)
+            {
+                if (!types[u]) continue;
+                for (uintptr_t base = 0x8580; base < 0x86C0; base += 0x40)
+                {
+                    char line[200];
+                    int  len = 0;
+                    for (uintptr_t o = base; o < base + 0x40; o += 4)
+                    {
+                        int v = 0;
+                        ReadI(types[u], o, v);
+                        len += snprintf(line + len, sizeof(line) - len, "%d ", v);
+                    }
+                    Log("probe   %s type +0x%X: %s", u == 0 ? "lead" : (u == 1 ? "car1" : "carN"), (unsigned)base, line);
+                }
+            }
+        }
+    if (!found) Log("probe   no vehicle field leads to a type with category 4 (lead) / 3,5 (cars)");
+}
+
 Train* Find(BYTE* veh)
 {
     BYTE* type = nullptr;
@@ -239,6 +304,7 @@ Train* Find(BYTE* veh)
                 t.type = type;
                 t.id = ++g_trainCount;
                 t.pax = IsPassengerTrain(veh);
+                if (g_cfg.census) ProbeLayout(veh, t.id);
             }
             return &t;
         }
@@ -255,6 +321,7 @@ Train* Find(BYTE* veh)
             t.type = type;
             t.id   = ++g_trainCount;
             t.pax  = IsPassengerTrain(veh);
+            if (g_cfg.census) ProbeLayout(veh, t.id);
             return &t;
         }
     }
