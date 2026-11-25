@@ -29,10 +29,21 @@ grep '^signal_aspect' "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini" | sed 's/^/
 # the Workshop folder, so this tests the new build with the published buttons.
 # (The old local test project, workshop_wip/9957001, is no longer made: with
 # the subscription it would show every button twice.)
-# EXTRA="key = value": one more ini line, for a single test (e.g. office_probe = 1).
+# EXTRA="key = value" (several: one per line): set ini values for a single
+# test. An existing key is changed in place - the game reads the FIRST
+# occurrence, so appending a duplicate would be ignored.
 if [ -n "$EXTRA" ]; then
-    printf '\n%s\n' "$EXTRA" >> "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
-    echo "[deploy] + $EXTRA"
+    INI="$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
+    printf '%s\n' "$EXTRA" | while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        key=$(printf '%s' "$line" | sed 's/[[:space:]]*=.*//')
+        if grep -q "^$key[[:space:]]*=" "$INI"; then
+            sed -i '' "s|^$key[[:space:]]*=.*|$line|" "$INI"
+        else
+            printf '\n%s\n' "$line" >> "$INI"
+        fi
+        echo "[deploy] $(grep "^$key[[:space:]]*=" "$INI" | head -n 1)"
+    done
 fi
 if [ -n "$ASPECT" ]; then
     sed -i '' "s/^signal_aspect = .*/signal_aspect = $ASPECT/" "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini"
