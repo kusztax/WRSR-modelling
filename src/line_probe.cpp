@@ -265,7 +265,7 @@ DWORD WINAPI Thread(void*)
 
     struct Bucket { int cat, cls, flag0, flag1, other; uintptr_t sample; };
     static Bucket b[64];
-    int nb = 0, total = 0;
+    int nb = 0, nVeh = 0;
     MEMORY_BASIC_INFORMATION mi;
     for (BYTE* p = nullptr; VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi); p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
@@ -289,7 +289,7 @@ DWORD WINAPI Thread(void*)
                 BYTE f = 0xFF;
                 SIZE_T g2 = 0;
                 ReadProcessMemory(GetCurrentProcess(), (void*)(v + 0x658), &f, 1, &g2);
-                ++total;
+                ++nVeh;
                 int j = 0;
                 while (j < nb && (b[j].cat != cat || b[j].cls != cls)) ++j;
                 if (j == nb && nb < 64) b[nb++] = Bucket{cat, cls, 0, 0, 0, v};
@@ -297,7 +297,7 @@ DWORD WINAPI Thread(void*)
             }
         }
     }
-    Log("line probe: %d vehicles with that vtable:", total);
+    Log("line probe: %d vehicles with that vtable:", nVeh);
     for (int j = 0; j < nb; ++j)
         Log("line probe:   category %d, transport class %d: %d with spacing 0, %d with 1, %d other (e.g. %p)",
             b[j].cat, b[j].cls, b[j].flag0, b[j].flag1, b[j].other, (void*)b[j].sample);
