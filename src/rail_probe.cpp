@@ -120,7 +120,7 @@ void ScanUnit(BYTE* unit, Consist& c)
     BYTE* type = nullptr;
     int   cat = -1, cls = -1, inactive = 0;
     unsigned char rev = 0;
-    if (!Read(unit, V_TYPE, type) || !Read(type, T_CATEGORY, cat) || !Read(type, T_TRANSPORT, cls))
+    if (!Read(unit, g_layout.vType, type) || !Read(type, g_layout.tCategory, cat) || !Read(type, g_layout.tTransport, cls))
     {
         ++c.unreadable;
         return;
@@ -220,8 +220,8 @@ void LogNewTrain(const Seen& s)
     int   cat = -1, cls = -1;
     float top = -1, speed = -1, target = -1;
     BYTE* leader = nullptr;
-    Read(s.type, T_CATEGORY, cat);
-    Read(s.type, T_TRANSPORT, cls);
+    Read(s.type, g_layout.tCategory, cat);
+    Read(s.type, g_layout.tTransport, cls);
     Read(s.type, T_TOPSPEED, top);
     Read(v, V_SPEED, speed);
     Read(v, V_TARGET, target);
@@ -242,7 +242,7 @@ void LogNewTrain(const Seen& s)
 Seen* Track(BYTE* v)
 {
     BYTE* type = nullptr;
-    if (!Read(v, V_TYPE, type)) return nullptr;
+    if (!Read(v, g_layout.vType, type)) return nullptr;
 
     for (int i = 0; i < g_seenCount; ++i)
         if (g_seen[i].veh == v && g_seen[i].type == type) return &g_seen[i];

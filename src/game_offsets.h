@@ -22,13 +22,27 @@ constexpr uintptr_t V_CHAIN_NEXT = 0x528;   // chain the train is engaged with /
 constexpr uintptr_t V_DIR        = 0x7A0;   // u8: direction on the current segment
 constexpr uintptr_t V_SPEED      = 0xD24;   // float km/h
 constexpr uintptr_t V_TARGET     = 0xD28;   // float km/h, effective target speed
-constexpr uintptr_t V_TYPE       = 0x1708;  // -> vehicle type
 constexpr uintptr_t V_INACTIVE   = 0x1794;  // int: wagon excluded when non-zero
 
-// ---- vehicle type ----
-constexpr uintptr_t T_CATEGORY   = 0x294;   // int: 3 wagon, 4 locomotive, 5 service
-constexpr uintptr_t T_TRANSPORT  = 0x8600;  // int: transport class, 7 = passengers
-constexpr uintptr_t T_TOPSPEED   = 0x8624;  // float km/h
+// ---- vehicle -> type, by game version (moved in 1.2) ----
+// vType: vehicle field -> vehicle type; tCategory: int 3 wagon, 4 locomotive,
+// 5 service; tTransport: int transport class, 7 = passengers.
+// The layout is chosen at run time from a real train (signal_priority.cpp
+// ChooseLayout): the one where the lead is a locomotive and every car a
+// wagon. None matching (a newer game): passenger detection stays off.
+struct VehicleLayout
+{
+    uintptr_t   vType, tCategory, tTransport;
+    const char* game;
+};
+inline const VehicleLayout kLayouts[] = {
+    {0x1708, 0x294, 0x8600, "1.1.1.x"},
+    {0x1748, 0x2B8, 0x8650, "1.2.0.8"},
+};
+inline VehicleLayout g_layout      = kLayouts[0];
+inline bool          g_layoutKnown = false;
+
+constexpr uintptr_t T_TOPSPEED   = 0x8624;  // float km/h (1.1.1.x only; census log)
 
 constexpr int CAT_WAGON = 3, CAT_LOCO = 4, CAT_SERVICE = 5;
 constexpr int TRANSPORT_PASSENGERS = 7;

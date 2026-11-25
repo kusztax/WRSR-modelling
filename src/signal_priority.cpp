@@ -208,8 +208,10 @@ bool IsPassengerTrain(BYTE* lead)
     auto unitIsPax = [](BYTE* unit) {
         BYTE* type = nullptr;
         int   cls  = -1;
-        return Read(unit, V_TYPE, type) && Read(type, T_TRANSPORT, cls) && cls == TRANSPORT_PASSENGERS;
+        return Read(unit, g_layout.vType, type) && Read(type, g_layout.tTransport, cls) &&
+               cls == TRANSPORT_PASSENGERS;
     };
+    if (!g_layoutKnown) return false;   // unknown game layout: never hold anyone
     if (unitIsPax(lead)) return true;
     BYTE** b = nullptr;
     BYTE** e = nullptr;
@@ -258,7 +260,7 @@ void ProbeLayout(BYTE* lead, int id)
             if (!ok) continue;
             ++found;
             Log("probe   type at vehicle+0x%X, category at type+0x%X (known: +0x%X / +0x%X)", (unsigned)k, (unsigned)c,
-                (unsigned)V_TYPE, (unsigned)T_CATEGORY);
+                (unsigned)g_layout.vType, (unsigned)g_layout.tCategory);
             if (found > 1) continue;
             // the transport class: dump ints of the lead's and two cars' types
             BYTE* types[3] = {nullptr, nullptr, nullptr};
@@ -285,10 +287,61 @@ void ProbeLayout(BYTE* lead, int id)
     if (!found) Log("probe   no vehicle field leads to a type with category 4 (lead) / 3,5 (cars)");
 }
 
+// Which vehicle layout is this game? Decided on the first train with cars:
+// the layout where the lead is a locomotive and every car a wagon/service
+// car. Up to 8 trains with cars are tried; none matching -> passenger
+// detection stays off (and the layout probe logs what it can see).
+int g_layoutTries = 0;
+
+bool LayoutFits(const VehicleLayout& L, BYTE* lead, BYTE** units, int n)
+{
+    BYTE* t = nullptr;
+    int   c = 0;
+    if (!Read(lead, L.vType, t) || !t || !Read(t, L.tCategory, c) || c != CAT_LOCO) return false;
+    for (int i = 0; i < n; ++i)
+    {
+        BYTE* wt = nullptr;
+        int   wc = 0;
+        if (!Read(units[i], L.vType, wt) || !wt || !Read(wt, L.tCategory, wc) || (wc != CAT_WAGON && wc != CAT_SERVICE))
+            return false;
+    }
+    return true;
+}
+
+void ChooseLayout(BYTE* lead)
+{
+    if (g_layoutKnown || g_layoutTries >= 8) return;
+    BYTE** b = nullptr;
+    BYTE** e = nullptr;
+    BYTE*  units[16];
+    int    n = 0;
+    if (Read(lead, V_WAGON_VEC, b) && Read(lead, V_WAGON_VEC + 8, e) && b && e > b && e - b <= 512 &&
+        Readable(b, (size_t)(e - b) * sizeof(BYTE*)))
+        for (BYTE** p = b; p != e && n < 16; ++p) if (*p && *p != lead) units[n++] = *p;
+    if (n == 0) return;   // a lone locomotive proves nothing
+    ++g_layoutTries;
+    for (const VehicleLayout& L : kLayouts)
+        if (LayoutFits(L, lead, units, n))
+        {
+            g_layout      = L;
+            g_layoutKnown = true;
+            Log("prio  vehicle layout: game %s (type at +0x%X, passengers class at type+0x%X)", L.game,
+                (unsigned)L.vType, (unsigned)L.tTransport);
+            // trains seen before this were classified with no layout
+            for (Train& t : g_train)
+                if (t.veh) t.pax = IsPassengerTrain(t.veh);
+            return;
+        }
+    if (g_layoutTries == 8)
+        Log("prio  vehicle layout UNKNOWN (newer game?) - passenger trains cannot be told apart, priority does nothing");
+    ProbeLayout(lead, -g_layoutTries);
+}
+
 Train* Find(BYTE* veh)
 {
+    ChooseLayout(veh);
     BYTE* type = nullptr;
-    if (!Read(veh, V_TYPE, type)) return nullptr;
+    if (!Read(veh, g_layout.vType, type)) return nullptr;
 
     uint64_t h = (uint64_t)(uintptr_t)veh;
     h ^= h >> 17; h *= 0xED5AD4BBull; h ^= h >> 11;
