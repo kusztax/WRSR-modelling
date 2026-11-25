@@ -4,21 +4,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "logger.h"
 
 namespace wrsr::line_probe {
 namespace {
 
-constexpr int    kBefore = 0x400, kAfter = 0x200, kSpan = kBefore + kAfter;
-constexpr int    kMaxHits = 12;
+constexpr int    kBefore = 0x800, kAfter = 0x800, kSpan = kBefore + kAfter;
+constexpr int    kMaxHits = 96;
 float  g_len[4];
 int    g_nLen = 0;
 
 struct Hit
 {
     BYTE* at;          // the length value
-    int   which;       // index into g_len
+    int   which;       // index into g_len; -1 name string, -2 pointer to a name
     bool  dbl;
     BYTE  snap[kSpan]; // memory at [at - kBefore, at + kAfter)
 };
@@ -37,18 +38,18 @@ void Scan()
     static BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!chunk) return;
     MEMORY_BASIC_INFORMATION mi;
-    for (BYTE* p = nullptr; g_nHit < kMaxHits && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
+    for (BYTE* p = nullptr; g_nHit < 48 && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
          p = (BYTE*)mi.BaseAddress + mi.RegionSize)
     {
         if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
         if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))) continue;
         BYTE* base = (BYTE*)mi.BaseAddress;
-        for (SIZE_T off = 0; g_nHit < kMaxHits && off < mi.RegionSize; off += kChunk)
+        for (SIZE_T off = 0; g_nHit < 48 && off < mi.RegionSize; off += kChunk)
         {
             SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
             SIZE_T got = 0;
             if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
-            for (SIZE_T i = 0; i + 8 <= got && g_nHit < kMaxHits; i += 4)
+            for (SIZE_T i = 0; i + 8 <= got && g_nHit < 48; i += 4)
                 for (int w = 0; w < g_nLen; ++w)
                 {
                     float f;
@@ -65,15 +66,78 @@ void Scan()
                     if (!ReadMem(h.at - kBefore, h.snap, kSpan)) continue;
                     ++g_nHit;
                     Log("line probe: hit %d - %.2f m (%s) at %p", g_nHit - 1, g_len[w], isD ? "double" : "float", (void*)h.at);
-                    for (int row = -0x80; row < 0x80; row += 32)
-                    {
-                        char line[120];
-                        int c = 0;
-                        for (int j = 0; j < 32; ++j) c += snprintf(line + c, sizeof(line) - c, "%02X ", h.snap[kBefore + row + j]);
-                        Log("line probe   %c%03X %s", row < 0 ? '-' : '+', row < 0 ? -row : row, line);
-                    }
                 }
         }
+    }
+}
+
+
+// The lines' names, as the game shows them (wide strings): unique to a line,
+// unlike its length. "Kromňová Buszmegálló - Krom..." / "Lenin Ltp. megálló ..(2).. Vas..."
+const wchar_t* const kNames[] = {L"Kromňová Buszmegálló - Krom",
+                                 L"Lenin Ltp. megálló ..(2).. Vas"};
+
+void AddHit(BYTE* at, int which, const char* what)
+{
+    if (g_nHit >= kMaxHits) return;
+    Hit& h = g_hit[g_nHit];
+    h.at = at;
+    h.which = which;
+    h.dbl = false;
+    if (!ReadMem(at - kBefore, h.snap, kSpan)) return;
+    ++g_nHit;
+    Log("line probe: hit %d - %s at %p", g_nHit - 1, what, (void*)at);
+}
+
+// Second pass: the names, and every pointer to a found name.
+void ScanNames()
+{
+    BYTE* found[8];
+    int   nFound = 0;
+    const SIZE_T kChunk = 1 << 20;
+    static BYTE* chunk = (BYTE*)VirtualAlloc(nullptr, kChunk, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!chunk) return;
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        MEMORY_BASIC_INFORMATION mi;
+        for (BYTE* p = nullptr; g_nHit < kMaxHits && VirtualQuery(p, &mi, sizeof(mi)) == sizeof(mi);
+             p = (BYTE*)mi.BaseAddress + mi.RegionSize)
+        {
+            if (mi.State != MEM_COMMIT || mi.Type != MEM_PRIVATE || (mi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) continue;
+            if (!(mi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))) continue;
+            BYTE* base = (BYTE*)mi.BaseAddress;
+            for (SIZE_T off = 0; g_nHit < kMaxHits && off < mi.RegionSize; off += kChunk)
+            {
+                SIZE_T want = mi.RegionSize - off < kChunk ? mi.RegionSize - off : kChunk;
+                SIZE_T got = 0;
+                if (base + off == chunk || !ReadProcessMemory(GetCurrentProcess(), base + off, chunk, want, &got)) continue;
+                if (pass == 0)
+                {
+                    for (const wchar_t* nm : kNames)
+                    {
+                        size_t len = wcslen(nm) * 2;
+                        for (SIZE_T i = 0; i + len <= got && nFound < 8; i += 2)
+                            if (chunk[i] == (BYTE)nm[0] && memcmp(chunk + i, nm, len) == 0)
+                            {
+                                found[nFound++] = base + off + i;
+                                AddHit(base + off + i, -1, nm == kNames[0] ? "bus line name" : "tram line name");
+                            }
+                    }
+                }
+                else
+                {
+                    for (SIZE_T i = 0; i + 8 <= got; i += 8)
+                    {
+                        BYTE* q;
+                        memcpy(&q, chunk + i, 8);
+                        for (int k = 0; k < nFound; ++k)
+                            if (q == found[k] && base + off + i != (BYTE*)&found[k])
+                                AddHit(base + off + i, -2, "pointer to a line name");
+                    }
+                }
+            }
+        }
+        if (!nFound) { Log("line probe: line names not found in memory"); return; }
     }
 }
 
@@ -85,6 +149,7 @@ DWORD WINAPI Thread(void*)
         if (g_nHit == 0)
         {
             Scan();
+            ScanNames();
             if (g_nHit == 0)
             {
                 if (round % 6 == 0) Log("line probe: no line of that length yet (load the save)");
@@ -105,7 +170,7 @@ DWORD WINAPI Thread(void*)
                 if (now[i] == h.snap[i]) continue;
                 // one line per changed 4-byte word
                 int w = i & ~3;
-                if (lines < 40)
+                if (lines < 60)
                 {
                     unsigned o = 0, n = 0;
                     memcpy(&o, h.snap + w, 4);
@@ -121,7 +186,7 @@ DWORD WINAPI Thread(void*)
             }
             memcpy(h.snap, now, kSpan);
         }
-        if (lines > 40) Log("line probe: ... %d changes in all this round", lines);
+        if (lines > 60) Log("line probe: ... %d changes in all this round", lines);
     }
     return 0;
 }
