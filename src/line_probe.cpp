@@ -16,7 +16,7 @@ namespace wrsr::line_probe {
 namespace {
 
 constexpr size_t kMaxPages = 1u << 21;   // 8 GiB of 4 KiB pages
-constexpr int    kMaxCand  = 2048;       // pages kept in full
+constexpr int    kMaxCand  = 4096;       // pages kept in full
 
 struct PageHash { uintptr_t addr; uint64_t hash; };
 
@@ -26,7 +26,7 @@ size_t    g_nPrev = 0, g_nCur = 0;
 BYTE*     g_chunk = nullptr;   // 1 MiB read buffer
 
 // Candidates: page address, its content in the "on" and "off" states seen.
-struct Cand { uintptr_t addr; bool alive; int hits; BYTE before[4096]; BYTE after[4096]; BYTE t[3][4096]; };
+struct Cand { uintptr_t addr; bool alive; int hits; BYTE last[4096]; BYTE t[3][4096]; BYTE bad[4096]; };
 Cand* g_cand  = nullptr;
 int   g_nCand = 0;
 
@@ -111,9 +111,11 @@ DWORD WINAPI Thread(void*)
     Snapshot();
     Log("line probe: baseline %zu pages", g_nCur);
 
-    // still, still, TOGGLE, still, TOGGLE, still, TOGGLE, still
+    // still, still, TOGGLE, still, TOGGLE, still, TOGGLE, still. Byte level:
+    // a byte that moves in any still step is out, its page stays in.
     const bool toggle[] = {false, false, true, false, true, false, true, false};
     const int  nSteps   = (int)(sizeof(toggle) / sizeof(toggle[0]));
+    int clicks = 0;
     for (int s = 0; s < nSteps; ++s)
     {
         memcpy(g_prev, g_cur, g_nCur * sizeof(PageHash));
@@ -123,72 +125,79 @@ DWORD WINAPI Thread(void*)
         Sleep(10000);
         Snapshot();
 
-        if (toggle[s] && g_nCand == 0)
+        if (toggle[s] && clicks == 0)
         {
-            // first toggle: every changed page is a candidate
             int n = Changed([](uintptr_t a) {
                 if (g_nCand >= kMaxCand) return;
                 Cand& c = g_cand[g_nCand];
                 c.addr = a; c.alive = true; c.hits = 1;
-                if (ReadPage(a, c.after)) { memcpy(c.t[0], c.after, 4096); ++g_nCand; }
+                memset(c.bad, 0, 4096);
+                if (ReadPage(a, c.last)) { memcpy(c.t[0], c.last, 4096); ++g_nCand; }
             });
-            Log("line probe: step %d: %d pages changed, %d kept as candidates", s + 1, n, g_nCand);
-            // "before" = the state before this click: not known; filled at the next toggle
-            for (int k = 0; k < g_nCand; ++k) memcpy(g_cand[k].before, g_cand[k].after, 4096);
+            clicks = 1;
+            Log("line probe: step %d: %d pages changed, %d kept", s + 1, n, g_nCand);
             continue;
         }
-        // later steps: a toggle must change the candidate, a still step must not
-        int alive = 0, n = Changed([](uintptr_t) {});
+        if (g_nCand == 0) continue;
+        int alive = 0;
         for (int k = 0; k < g_nCand; ++k)
         {
             Cand& c = g_cand[k];
             if (!c.alive) continue;
             BYTE now[4096];
             if (!ReadPage(c.addr, now)) { c.alive = false; continue; }
-            bool diff = memcmp(now, c.after, 4096) != 0;
-            if (toggle[s] != diff) { c.alive = false; continue; }
-            if (toggle[s])
-            {
-                memcpy(c.before, c.after, 4096);
-                memcpy(c.after, now, 4096);
-                if (c.hits < 3) memcpy(c.t[c.hits], now, 4096);
-                ++c.hits;
-            }
+            if (!toggle[s])
+                for (int i = 0; i < 4096; ++i) { if (now[i] != c.last[i]) c.bad[i] = 1; }
+            else if (c.hits < 3)
+                memcpy(c.t[c.hits++], now, 4096);
+            memcpy(c.last, now, 4096);
             ++alive;
         }
-        Log("line probe: step %d: %d pages changed in all; %d candidates left", s + 1, n, alive);
+        if (toggle[s]) ++clicks;
+        Log("line probe: step %d done (%d pages watched)", s + 1, alive);
     }
 
-    // Report: bytes that alternate with the clicks (state after click 1 ==
-    // after click 3 != after click 2) and never move while still.
+    // Report: bytes never moving while still, with state1 == state3 != state2.
     struct Flip { BYTE* at; BYTE a, b; };
-    static Flip flips[256];
-    int nFlips = 0, shown = 0;
+    static Flip flips[512];
+    int nFlips = 0, shown = 0, total = 0;
     for (int k = 0; k < g_nCand; ++k)
     {
         Cand& c = g_cand[k];
         if (!c.alive || c.hits < 3) continue;
         for (int i = 0; i < 4096; ++i)
         {
+            if (c.bad[i]) continue;
             BYTE a = c.t[0][i], b = c.t[1][i], d = c.t[2][i];
             if (a != d || a == b) continue;
-            bool flag = (a <= 1 && b <= 1);
-            if (shown < 80)
+            ++total;
+            bool flag = (a <= 3 && b <= 3);
+            if (flag && nFlips < 512) flips[nFlips++] = Flip{(BYTE*)(c.addr + i), a, b};
+            if (shown < 60 && flag)
             {
                 ++shown;
-                Log("line probe: RESULT %p: %02X / %02X / %02X after clicks 1/2/3%s", (void*)(c.addr + i), a, b, d,
-                    flag ? "   <-- 0/1 FLAG" : "");
+                Log("line probe: FLAG %p: %02X / %02X / %02X after clicks 1/2/3", (void*)(c.addr + i), a, b, d);
             }
-            if (flag && nFlips < 256) flips[nFlips++] = Flip{(BYTE*)(c.addr + i), a, b};
         }
     }
-    Log("line probe: %d alternating bytes, %d of them 0/1 flags", shown, nFlips);
+    Log("line probe: %d alternating bytes, %d of them small flags (0..3)", total, nFlips);
     if (!nFlips) { Log("line probe: no 0/1 flag - done. You can unpause."); return 0; }
 
     // Persistent (the line) or the window's? Close the window, flip the
     // flags ourselves, reopen: if the box shows the other state, it is the line.
-    Log("line probe: now CLOSE the bus line's window (stay paused). In 20 s the probe flips the flag(s) itself.");
+    Log("line probe: now CLOSE the bus line's window (stay paused). In 20 s the probe checks and flips the flag(s).");
     Sleep(20000);
+    // what survives the window closing belongs to the line, not to the window
+    int kept = 0;
+    for (int k = 0; k < nFlips; ++k)
+    {
+        BYTE now = 0;
+        SIZE_T got = 0;
+        bool same = ReadProcessMemory(GetCurrentProcess(), flips[k].at, &now, 1, &got) && now == flips[k].a;
+        Log("line probe: after closing: %p is %02X - %s", (void*)flips[k].at, now, same ? "KEPT (the line?)" : "gone (the window)");
+        if (same) ++kept;
+    }
+    Log("line probe: %d flag(s) survived the window closing", kept);
     int wrote = 0;
     for (int k = 0; k < nFlips; ++k)
     {
