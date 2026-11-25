@@ -483,6 +483,20 @@ char Decide(Train& t, char gameAnswer, const Ahead& a, ULONGLONG now)
         return gameAnswer;
     }
 
+    // The player's "pass the red signal" button sets this flag, and the game's
+    // own check then always says go (that test is the first thing in the
+    // function we hook): never overrule the player.
+    unsigned char passAll = 0;
+    if (Read(t.veh, V_PASS_ALL, passAll) && passAll)
+    {
+        if (t.holdStart && TakeLine())
+            Log("prio  GO     train #%d %s released: the player told it to pass the red signal", t.id, Kind(t));
+        t.holdStart   = 0;
+        t.starveSince = 0;
+        if (ownRed) { ReleaseRed(t, "player override"); return 0; }
+        return gameAnswer;
+    }
+
     // Switched off in the Scripts menu (per save): let a held train go.
     if (script_switch::PriorityOffByScript())
     {
