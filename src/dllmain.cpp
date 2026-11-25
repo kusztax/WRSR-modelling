@@ -142,7 +142,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             H->configString(kIni, kSection, "line_lengths", lens, sizeof(lens), "");
             wrsr::line_probe::Start(lens);
         }
-        if (H->configInt(kIni, kSection, "spacing_test", 0)) wrsr::spacing_test::Start();
+        if (H->configInt(kIni, kSection, "spacing_test", 0)) wrsr::spacing_test::Start(g_exe);
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
 

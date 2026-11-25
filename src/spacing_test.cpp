@@ -6,6 +6,8 @@
 #include <windows.h>
 #include <string.h>
 
+#include "aob_scan.h"
+#include "hooks.h"
 #include "logger.h"
 
 namespace wrsr::spacing_test {
@@ -16,6 +18,47 @@ constexpr uintptr_t kSpacing = 0x658;    // per-vehicle spacing switch
 constexpr uintptr_t kType    = 0x1748;   // vehicle -> type
 constexpr uintptr_t kCat     = 0x2B8;    // type -> category (4 = locomotive)
 constexpr uintptr_t kClass   = 0x8650;   // type -> transport class (7 = passengers)
+
+// `bool lineMaySpace(line)` - false unless it is a road line; gates both
+// the spacing computation (per tick, all lines) and the line window's switch.
+const char kSigMaySpace[] =
+    "40 53 48 83 EC 20 48 8B 81 48 02 00 00 45 32 C9 48 2B 81 40 02 00 00 48 8B D9 48 C1 F8 03 48 85";
+const unsigned char kMaySpaceExpect[16] = {
+    0x40, 0x53, 0x48, 0x83, 0xEC, 0x20,              // push rbx; sub rsp,20h
+    0x48, 0x8B, 0x81, 0x48, 0x02, 0x00, 0x00,        // mov rax,[rcx+248h]
+    0x45, 0x32, 0xC9};                               // xor r9b,r9b
+constexpr uintptr_t kLineVehBegin = 0x240;   // line -> vector<vehicle*>
+constexpr uintptr_t kVehLine      = 0x650;   // vehicle -> line
+constexpr uintptr_t kVehWait      = 0x670;   // spacing speed cap (float, -1 = none)
+
+typedef char (*MaySpaceFn)(void* line);
+MaySpaceFn     g_origMaySpace = nullptr;
+volatile LONG  g_overrides = 0;
+
+// A line whose vehicles all carry their own passengers on rails.
+bool RailPassengerLine(const BYTE* line)
+{
+    BYTE* const* b = *(BYTE* const* const*)(line + kLineVehBegin);
+    BYTE* const* e = *(BYTE* const* const*)(line + kLineVehBegin + 8);
+    if (!b || e <= b || e - b > 256) return false;
+    for (BYTE* const* p = b; p != e; ++p)
+    {
+        const BYTE* v = *p;
+        if (!v) return false;
+        const BYTE* t = *(BYTE* const*)(v + kType);
+        if (!t || *(const int*)(t + kCat) != 4 || *(const int*)(t + kClass) != 7) return false;
+    }
+    return true;
+}
+
+char MaySpaceDetour(void* line)
+{
+    char r = g_origMaySpace(line);
+    if (r || !line) return r;
+    if (!RailPassengerLine((const BYTE*)line)) return r;
+    InterlockedIncrement(&g_overrides);
+    return 1;
+}
 
 volatile uintptr_t g_anchor = 0;
 volatile LONG      g_on = 0;
@@ -116,9 +159,24 @@ DWORD WINAPI Thread(void*)
             if (f == 0) WriteProcessMemory(GetCurrentProcess(), (void*)(g_t[i].v + kSpacing), &one, 1, &put);
         }
         resets += off;
-        if (off || tick % 12 == 0)
-            Log("spacing test: %d min %d s - on %d, reset by the game %d (set again), gone %d, resets so far %d",
-                tick * 5 / 60, tick * 5 % 60, on, off, gone, resets);
+        if (off || tick % 6 == 0)
+        {
+            // what the game's spacing computed for them (speed cap, -1 = none)
+            int capped = 0, lined = 0;
+            float lo = 1e9f, hi = -1e9f;
+            for (int i = 0; i < g_nt; ++i)
+            {
+                if (!g_t[i].v) continue;
+                uintptr_t ln = 0;
+                float w = -1;
+                if (Rd(g_t[i].v + kVehLine, ln) && ln) ++lined;
+                if (!Rd(g_t[i].v + kVehWait, w)) continue;
+                if (w > 0) { ++capped; if (w < lo) lo = w; if (w > hi) hi = w; }
+            }
+            Log("spacing test: %d min %d s - on %d, reset %d, gone %d | on a line %d, speed-capped %d (%.1f..%.1f) | game asked %ld times",
+                tick * 5 / 60, tick * 5 % 60, on, off, gone, lined, capped, capped ? lo : 0.f, capped ? hi : 0.f,
+                (long)g_overrides);
+        }
     }
     Log("spacing test: done (switches stay as they are until the save is reloaded)");
     return 0;
@@ -131,9 +189,16 @@ void NoteVehicle(const void* veh)
     if (g_on && !g_anchor && veh) g_anchor = (uintptr_t)veh;
 }
 
-void Start()
+void Start(HMODULE exe)
 {
     if (InterlockedExchange(&g_on, 1)) return;
+    aob::Hit hit = aob::ScanModule(exe, ".text", kSigMaySpace, "line spacing gate fn");
+    if (hit.result == aob::Result::Unique &&
+        hooks::InstallHostHook("line spacing gate", hit.addr, (void*)&MaySpaceDetour, (void**)&g_origMaySpace,
+                               kMaySpaceExpect, sizeof(kMaySpaceExpect)))
+        Log("spacing test: tram/railcar lines may now use spacing");
+    else
+        Log("spacing test: spacing gate not hooked - only the switches are set");
     HANDLE h = CreateThread(nullptr, 0, Thread, nullptr, 0, nullptr);
     if (h) CloseHandle(h);
     Log("spacing test on");
