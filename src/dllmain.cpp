@@ -25,6 +25,7 @@
 #include "rail_probe.h"
 #include "signal_priority.h"
 #include "research.h"
+#include "line_probe.h"
 
 using wrsr::Log;
 
@@ -134,6 +135,12 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     if (sc.priority)
     {
         wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0);
+        if (H->configInt(kIni, kSection, "line_probe", 0))
+        {
+            char lens[128];
+            H->configString(kIni, kSection, "line_lengths", lens, sizeof(lens), "");
+            wrsr::line_probe::Start(lens);
+        }
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
 
