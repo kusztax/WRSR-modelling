@@ -7,8 +7,9 @@
 // choice is per save; with no flag running - a new game, or any save from
 // before the mod - the priority is ON.
 //
-// Running scripts: world +0x13BB8 is a vector of script*, each with its file
-// and name as wide strings at *(+0xB8) / *(+0xC0).
+// Running scripts: a vector of script* in the world (+0x13BB8 in 1.1.1.13),
+// each with its file and name as wide strings at *(+0xB8) / *(+0xC0). Both
+// are checked, and found again when a game update moves them.
 #pragma once
 
 #include <windows.h>
