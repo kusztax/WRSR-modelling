@@ -24,4 +24,9 @@ A teszt- és feltáró kód (`line_probe`, `spacing_test`) törölve.
 4. [x] Tehervonat-vonal ablakában nincs új elem.
 5. [x] Buszvonal ablaka változatlanul működik.
 6. [x] Motorkocsi-vonal (Komarek): a kapcsoló megjelenik, működik.
-7. [ ] Külön DLL-ként, a Rail Priority mellett betöltve.
+7. [x] Külön DLL-ként, a Rail Priority mellett betöltve (helyi példány).
+8. [ ] Workshopból (feliratkozva, helyi DLL nélkül) betöltve – nem ellenőrzött.
+
+## Workshop
+
+Elem: 3845880902 (feltöltve 2026-11-25, rejtve). `tools/package-spacing.sh`, majd `clean`.
