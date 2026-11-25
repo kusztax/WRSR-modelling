@@ -246,103 +246,73 @@ DWORD WINAPI Thread(void*)
     }
     Log("line probe: %d flag(s) survived the window closing.", kept);
 
-    // The spacing switch is vehicle+0x658. Vehicles sit in a pool (the buses
-    // were 0x1C40 apart): census the allocation(s) holding the line's buses,
-    // grouped by vehicle type. No writes.
-    uintptr_t pools[8];
-    int nPools = 0;
+    // The spacing switch is vehicle+0x658. The line's buses were a whole
+    // number of 0x1C40-byte slots apart: vehicles live in a fixed-stride array.
+    // Walk that array slot by slot from a known bus and group by type pointer
+    // (vehicles of one model share it). No writes.
+    const uintptr_t kSlot = 0x1C40;
+    uintptr_t anchor = 0;
+    int nBus = 0, offStride = 0;
     for (int k = 0; k < nFlips; ++k)
     {
         uintptr_t base = (uintptr_t)flips[k].at - 0x658;
         int cat = 0, cls = 0;
         if (!vehicleAt(base, &cat, &cls) || cls != 7) continue;
-        MEMORY_BASIC_INFORMATION m;
-        if (VirtualQuery((void*)base, &m, sizeof(m)) != sizeof(m)) continue;
-        uintptr_t ab = (uintptr_t)m.AllocationBase;
-        bool seen = false;
-        for (int i = 0; i < nPools; ++i) if (pools[i] == ab) seen = true;
-        if (!seen && nPools < 8) pools[nPools++] = ab;
+        if (!anchor) anchor = base;
+        else if ((base > anchor ? base - anchor : anchor - base) % kSlot) ++offStride;
+        ++nBus;
     }
-    if (!nPools) { Log("line probe: no bus vehicle with the flag at +0x658 - done, you can unpause."); return 0; }
+    if (!anchor) { Log("line probe: no bus vehicle with the flag at +0x658 - done, you can unpause."); return 0; }
+    Log("line probe: %d bus(es) with the flag, %d off the 0x1C40 stride, anchor %p", nBus, offStride, (void*)anchor);
 
-    struct Group { uintptr_t type; int cat, cls, n, f0, f1, other; uintptr_t sample; char name[40]; };
-    static Group g[96];
-    int ng = 0, nVeh = 0;
-    // type pointer verdict cache: 0 unknown, 1 good, 2 bad
-    static uintptr_t cacheKey[8192];
-    static BYTE      cacheVal[8192];
-    memset(cacheKey, 0, sizeof(cacheKey));
-    for (int pi = 0; pi < nPools; ++pi)
+    struct Group { uintptr_t type; int cat, cls, n, f0, f1, other; uintptr_t sample[4]; };
+    static Group g[1024];
+    int ng = 0, nVeh = 0, nSlots = 0, nEmpty = 0;
+    MEMORY_BASIC_INFORMATION m;
+    if (VirtualQuery((void*)anchor, &m, sizeof(m)) != sizeof(m)) { Log("line probe: pool query failed"); return 0; }
+    const uintptr_t ab = (uintptr_t)m.AllocationBase;
+    for (uintptr_t r = ab; VirtualQuery((void*)r, &m, sizeof(m)) == sizeof(m) && (uintptr_t)m.AllocationBase == ab;
+         r = (uintptr_t)m.BaseAddress + m.RegionSize)
     {
-        // walk every region of this allocation
-        MEMORY_BASIC_INFORMATION m;
-        for (uintptr_t r = pools[pi]; VirtualQuery((void*)r, &m, sizeof(m)) == sizeof(m) &&
-                                      (uintptr_t)m.AllocationBase == pools[pi];
-             r = (uintptr_t)m.BaseAddress + m.RegionSize)
+        if (m.State != MEM_COMMIT) continue;
+        uintptr_t rb = (uintptr_t)m.BaseAddress, re = rb + m.RegionSize;
+        uintptr_t first = anchor >= rb ? rb + (anchor - rb) % kSlot
+                                       : rb + (kSlot - (rb - anchor) % kSlot) % kSlot;
+        Log("line probe: pool region %p, %zu KiB, first slot %p", (void*)rb, (size_t)(m.RegionSize >> 10), (void*)first);
+        for (uintptr_t v = first; v + kSlot <= re; v += kSlot)
         {
-            if (m.State != MEM_COMMIT) continue;
-            uintptr_t rb = (uintptr_t)m.BaseAddress;
-            Log("line probe: vehicle pool region %p, %zu KiB", (void*)rb, (size_t)(m.RegionSize >> 10));
-            for (SIZE_T off = 0; off < m.RegionSize; off += 1 << 20)
+            ++nSlots;
+            int cat = 0, cls = 0;
+            if (!vehicleAt(v, &cat, &cls)) { ++nEmpty; continue; }
+            uintptr_t t = 0;
+            BYTE f = 0;
+            SIZE_T got = 0;
+            ReadProcessMemory(GetCurrentProcess(), (void*)(v + 0x1748), &t, 8, &got);
+            ReadProcessMemory(GetCurrentProcess(), (void*)(v + 0x658), &f, 1, &got);
+            ++nVeh;
+            int j = 0;
+            while (j < ng && g[j].type != t) ++j;
+            if (j == ng)
             {
-                SIZE_T want = m.RegionSize - off < (1u << 20) ? m.RegionSize - off : (1u << 20);
-                SIZE_T got = 0;
-                if (!ReadProcessMemory(GetCurrentProcess(), (void*)(rb + off), g_chunk, want, &got)) continue;
-                for (SIZE_T i = 0; i + 0x1750 <= got; i += 8)
-                {
-                    uintptr_t t;
-                    memcpy(&t, g_chunk + i + 0x1748, 8);
-                    if (t < 0x10000 || (t & 7) || (t >> 47)) continue;
-                    size_t h = (t >> 3) & 8191;
-                    if (cacheKey[h] != t)
-                    {
-                        int cat = 0, cls = 0;
-                        cacheKey[h] = t;
-                        cacheVal[h] = vehicleAt(rb + off + i, &cat, &cls) ? 1 : 2;
-                    }
-                    if (cacheVal[h] != 1) continue;
-                    int cat = 0, cls = 0;
-                    if (!vehicleAt(rb + off + i, &cat, &cls)) continue;
-                    BYTE f = g_chunk[i + 0x658];
-                    ++nVeh;
-                    int j = 0;
-                    while (j < ng && g[j].type != t) ++j;
-                    if (j == ng && ng < 96)
-                    {
-                        g[ng] = Group{t, cat, cls, 0, 0, 0, 0, rb + off + i, ""};
-                        // a readable name inside the type, if any
-                        BYTE tb[0x300];
-                        SIZE_T g2 = 0;
-                        if (ReadProcessMemory(GetCurrentProcess(), (void*)t, tb, sizeof(tb), &g2))
-                            for (int x = 0; x + 6 < (int)sizeof(tb); ++x)
-                            {
-                                int y = x;
-                                while (y < (int)sizeof(tb) && tb[y] >= 32 && tb[y] < 127) ++y;
-                                if (y - x >= 5 && y < (int)sizeof(tb) && tb[y] == 0)
-                                {
-                                    int L = y - x < 39 ? y - x : 39;
-                                    memcpy(g[ng].name, tb + x, L);
-                                    g[ng].name[L] = 0;
-                                    break;
-                                }
-                                x = y;
-                            }
-                        ++ng;
-                    }
-                    if (j < ng)
-                    {
-                        ++g[j].n;
-                        if (f == 0) ++g[j].f0; else if (f == 1) ++g[j].f1; else ++g[j].other;
-                    }
-                    i += 0x1C38;   // objects do not overlap: jump to the next slot
-                }
+                if (ng == 1024) continue;
+                g[ng++] = Group{t, cat, cls, 0, 0, 0, 0, {0, 0, 0, 0}};
             }
+            if (g[j].n < 4) g[j].sample[g[j].n] = v;
+            ++g[j].n;
+            if (f == 0) ++g[j].f0; else if (f == 1) ++g[j].f1; else ++g[j].other;
         }
     }
-    Log("line probe: %d vehicles in %d pool(s), %d types:", nVeh, nPools, ng);
-    for (int j = 0; j < ng; ++j)
-        Log("line probe:   type %p \"%s\": cat %d, class %d, %d vehicles (spacing 0: %d, 1: %d, other: %d), e.g. %p",
-            (void*)g[j].type, g[j].name, g[j].cat, g[j].cls, g[j].n, g[j].f0, g[j].f1, g[j].other, (void*)g[j].sample);
+    // biggest groups first
+    for (int i = 1; i < ng; ++i)
+        for (int j = i; j > 0 && g[j].n > g[j - 1].n; --j) { Group x = g[j]; g[j] = g[j - 1]; g[j - 1] = x; }
+    int singles = 0;
+    for (int j = 0; j < ng; ++j) if (g[j].n < 2) ++singles;
+    Log("line probe: %d slots, %d look like vehicles, %d types (%d with a single vehicle, not listed):",
+        nSlots, nVeh, ng, singles);
+    for (int j = 0; j < ng && g[j].n >= 2; ++j)
+        Log("line probe:   type %p: cat %d, class %d, %d vehicles (spacing 0: %d, 1: %d, other: %d), e.g. %p %p %p",
+            (void*)g[j].type, g[j].cat, g[j].cls, g[j].n, g[j].f0, g[j].f1, g[j].other,
+            (void*)g[j].sample[0], (void*)g[j].sample[1], (void*)g[j].sample[2]);
     Log("line probe: nothing was written. Done - you can unpause.");
     return 0;
 }
