@@ -25,7 +25,6 @@
 #include "rail_probe.h"
 #include "signal_priority.h"
 #include "research.h"
-#include "line_spacing.h"
 
 using wrsr::Log;
 
@@ -137,10 +136,6 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
         wrsr::research::Init(g_self, H->configInt(kIni, kSection, "research", 1) != 0);
         hooked |= wrsr::lang::Init(H, g_exe, g_engine);
     }
-
-    // The game's line spacing for tram and railcar lines.
-    if (H->configInt(kIni, kSection, "line_spacing", 1))
-        hooked |= wrsr::line_spacing::Start(H, g_exe);
 
     Log("start done - %s", hooked ? "hooks live (see prio / rail lines above)" : "no game code patched");
     return 0;

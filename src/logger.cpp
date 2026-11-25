@@ -12,7 +12,12 @@ HANDLE    g_file = INVALID_HANDLE_VALUE;
 HostLogFn g_host = nullptr;
 wchar_t   g_path[MAX_PATH * 2] = L"";
 
-const wchar_t kLogName[] = L"wrsr_rail_mod.log";
+#ifndef WRSR_MOD_NAME
+#define WRSR_MOD_NAME "wrsr_rail_mod"
+#endif
+#define WRSR_WIDEN2(x) L##x
+#define WRSR_WIDEN(x) WRSR_WIDEN2(x)
+const wchar_t kLogName[] = WRSR_WIDEN(WRSR_MOD_NAME) L".log";
 
 // Directory part of a module's path, without the trailing backslash.
 bool ModuleDir(HMODULE mod, wchar_t* out, DWORD cap)
@@ -79,7 +84,7 @@ bool Open(void* selfModule)
         else
         {
             static const char kHeader[] =
-                "==== wrsr_rail_mod " WRSR_MOD_VERSION " log ====\r\n";
+                "==== " WRSR_MOD_NAME " " WRSR_MOD_VERSION " log ====\r\n";
             WriteRaw(kHeader, sizeof(kHeader) - 1);
         }
     }

@@ -23,6 +23,15 @@ echo "[deploy] plugin -> tesmioloader/plugins"
 # relinked, so an ini-only change would not arrive.
 cp -f build/mingw/wrsr_rail_mod.dll config/wrsr_rail_mod.ini config/rail_priority.png "$GAME/tesmioloader/plugins/"
 grep '^signal_aspect' "$GAME/tesmioloader/plugins/wrsr_rail_mod.ini" | sed 's/^/[deploy] /'
+# Tram & Railcar Spacing, the second plugin. NOSPACING=1 leaves it out (and
+# removes an earlier local copy).
+if [ "$NOSPACING" = 1 ]; then
+    rm -f "$GAME/tesmioloader/plugins/wrsr_tram_spacing.dll" "$GAME/tesmioloader/plugins/wrsr_tram_spacing.ini"
+    echo "[deploy] tram spacing: left out"
+else
+    cp -f build/mingw/wrsr_tram_spacing.dll config/wrsr_tram_spacing.ini "$GAME/tesmioloader/plugins/"
+    echo "[deploy] tram spacing -> tesmioloader/plugins"
+fi
 
 # The Scripts menu buttons come from the published Workshop item (subscribe
 # to 3844461371). A local DLL in tesmioloader/plugins wins over the one in

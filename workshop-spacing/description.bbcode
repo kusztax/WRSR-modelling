@@ -1,0 +1,64 @@
+[h1]Tram & Railcar Spacing[/h1]
+The game's line spacing for tram and railcar lines. / A játék sortávolsága villamos- és motorkocsi-vonalakra.
+
+[h2]English[/h2]
+Game 1.2 brought line spacing, but only for road lines: buses get the switch in the line window, trams and railcars do not. So trams bunch up and run in convoys.
+
+With this mod the same switch appears in the line window of tram lines and railcar lines:
+[list]
+[*] it is the game's own spacing: a vehicle that gets too close to the one ahead slows down until the gaps on the line even out;
+[*] switch it per line in the line window; it is kept in the save;
+[*] a line qualifies when every vehicle on it carries its own passengers on rails (trams, railcars / multiple units). Lines with locomotive-hauled trains do not get it;
+[*] road lines work exactly as before.
+[/list]
+Saves load without the mod too: then the tram lines simply run without spacing, and with the mod back their switch is on again.
+
+[h3]Requirements[/h3]
+[list]
+[*] Workers & Resources: Soviet Republic 1.2.0.8
+[*] TesmioLoader or Republic Mod Loader
+[/list]
+[b]TesmioLoader on game 1.2:[/b] until TesmioLoader supports 1.2, it refuses to start. Set version_check = 0 in tesmioloader/tesmioloader.ini (at your own risk: other plugins may not be ready for 1.2). This mod checks the game code it changes and switches itself off if it does not match.
+
+[h3]Important: start the game through the loader, every time[/h3]
+This is a native plugin: it runs only when the game is started with TesmioLoader (tesmiolauncher.exe) or Republic Mod Loader. Started with Steam's Play button, tram lines have no spacing switch. The bottom-left corner of the main menu shows tesmioloader or Republic Mod Loader ACTIVE when a loader is running.
+
+[h3]Install[/h3]
+[b]TesmioLoader:[/b] subscribe; the loader finds the plugin in the Workshop folder. Start the game with tesmiolauncher.exe.
+[b]Republic Mod Loader:[/b] subscribe, enable wrsr_tram_spacing under Plugins, start the game from RML.
+Turn it off: enabled = 0 in wrsr_tram_spacing.ini, or unsubscribe.
+
+[h3]Source and licence[/h3]
+GPL-3.0. Source: github.com/kusztax/WRSR-modelling
+Built on the TesmioLoader plugin API (MaxLegend). From the author of Rail Priority.
+
+[h2]Magyar[/h2]
+Az 1.2-es játékba bekerült a sortávolság, de csak közúti vonalakra: a buszvonal ablakában van kapcsoló, a villamos- és motorkocsi-vonalakéban nincs. Ezért a villamosok összetorlódnak és konvojban járnak.
+
+A mod mellett ugyanez a kapcsoló megjelenik a villamosvonalak és a motorkocsi-vonalak ablakában:
+[list]
+[*] ez a játék saját sortávolsága: az a jármű, amelyik túl közel ér az előtte haladóhoz, lelassít, amíg a távolságok a vonalon ki nem egyenlítődnek;
+[*] vonalanként kapcsolható a vonal ablakában, és a mentésben megmarad;
+[*] az a vonal kapja meg, amelynek minden járműve maga viszi az utast, sínen (villamos, motorkocsi / motorvonat). Mozdonyos vonatok vonalán nem jelenik meg;
+[*] a közúti vonalak pontosan úgy működnek, mint eddig.
+[/list]
+A mentések a mod nélkül is betöltődnek: ilyenkor a villamosvonalak egyszerűen sortávolság nélkül mennek, a moddal pedig újra bekapcsolva látod őket.
+
+[h3]Követelmények[/h3]
+[list]
+[*] Workers & Resources: Soviet Republic 1.2.0.8
+[*] TesmioLoader vagy Republic Mod Loader
+[/list]
+[b]TesmioLoader 1.2-es játékon:[/b] amíg a TesmioLoader nem támogatja az 1.2-t, nem indul el. Állítsd be: version_check = 0 a tesmioloader/tesmioloader.ini fájlban (saját felelősségre: más pluginok még nem biztos, hogy készen állnak az 1.2-re). Ez a mod ellenőrzi a játékkódot, amit módosít, és kikapcsolja magát, ha nem egyezik.
+
+[h3]Fontos: a játékot mindig a loaderrel indítsd[/h3]
+Ez natív plugin: csak akkor működik, ha a játékot a TesmioLoaderrel (tesmiolauncher.exe) vagy a Republic Mod Loaderrel indítod. A Steam Play gombjával indítva a villamosvonalaknál nincs sortávolság-kapcsoló. A főmenü bal alsó sarkában ellenőrizheted: ha fut a loader, ott tesmioloader vagy Republic Mod Loader ACTIVE áll.
+
+[h3]Telepítés[/h3]
+[b]TesmioLoader:[/b] iratkozz fel; a loader a Workshop-mappában megtalálja a plugint. A játékot a tesmiolauncher.exe indítsa.
+[b]Republic Mod Loader:[/b] iratkozz fel, a Plugins alatt kapcsold be a wrsr_tram_spacing-et, és a játékot az RML-ből indítsd.
+Kikapcsolás: enabled = 0 a wrsr_tram_spacing.ini fájlban, vagy iratkozz le.
+
+[h3]Forrás és licenc[/h3]
+GPL-3.0. Forrás: github.com/kusztax/WRSR-modelling
+A TesmioLoader plugin API-ra épül (MaxLegend). A Rail Priority szerzőjétől.

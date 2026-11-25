@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(wrsr_rail_mod VERSION 1.4.0 LANGUAGES C CXX)
+project(wrsr_rail_mod VERSION 1.3.0 LANGUAGES C CXX)
+
+# Tram & Railcar Spacing, the second plugin in this repository.
+set(TRAM_SPACING_VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,13 +70,12 @@ add_library(wrsr_rail_mod SHARED
     src/priority_policy.cpp
     src/script_switch.cpp
     src/lang.cpp
-    src/research.cpp
-    src/line_spacing.cpp)
+    src/research.cpp)
 
 target_include_directories(wrsr_rail_mod PRIVATE src third_party/tesmio)
 target_compile_definitions(wrsr_rail_mod PRIVATE
     "WIN32_LEAN_AND_MEAN=" NOMINMAX _WIN32_WINNT=0x0601
-    WRSR_MOD_VERSION="${PROJECT_VERSION}")
+    WRSR_MOD_NAME="wrsr_rail_mod" WRSR_MOD_VERSION="${PROJECT_VERSION}")
 target_compile_options(wrsr_rail_mod PRIVATE
     -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
     -Wno-cast-function-type -fno-strict-aliasing)
@@ -95,6 +97,34 @@ add_custom_command(TARGET wrsr_rail_mod POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_SOURCE_DIR}/config/wrsr_rail_mod.ini
             $<TARGET_FILE_DIR:wrsr_rail_mod>/wrsr_rail_mod.ini)
+
+# ---------------------------------------------------------------------------
+# Tram & Railcar Spacing: wrsr_tram_spacing.dll
+# ---------------------------------------------------------------------------
+add_library(wrsr_tram_spacing SHARED
+    src/spacing_main.cpp
+    src/logger.cpp
+    src/hooks.cpp
+    src/aob_pattern.cpp
+    src/aob_scan.cpp
+    src/env_info.cpp
+    src/line_spacing.cpp)
+target_include_directories(wrsr_tram_spacing PRIVATE src third_party/tesmio)
+target_compile_definitions(wrsr_tram_spacing PRIVATE
+    "WIN32_LEAN_AND_MEAN=" NOMINMAX _WIN32_WINNT=0x0601
+    WRSR_MOD_NAME="wrsr_tram_spacing" WRSR_MOD_VERSION="${TRAM_SPACING_VERSION}")
+target_compile_options(wrsr_tram_spacing PRIVATE
+    -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
+    -Wno-cast-function-type -fno-strict-aliasing)
+set_target_properties(wrsr_tram_spacing PROPERTIES PREFIX "" OUTPUT_NAME "wrsr_tram_spacing")
+target_link_options(wrsr_tram_spacing PRIVATE
+    -static -static-libgcc -static-libstdc++
+    $<$<CONFIG:Release>:-s>)
+target_link_libraries(wrsr_tram_spacing PRIVATE minhook version)
+add_custom_command(TARGET wrsr_tram_spacing POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/config/wrsr_tram_spacing.ini
+            $<TARGET_FILE_DIR:wrsr_tram_spacing>/wrsr_tram_spacing.ini)
 
 # ---------------------------------------------------------------------------
 # fake_host.exe: loads the DLL like TesmioLoader does, with a stub host table.
